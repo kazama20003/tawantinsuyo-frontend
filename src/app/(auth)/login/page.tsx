@@ -25,7 +25,7 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const response = await api.get<AuthResponse>("/auth/login", {
+      const response = await api.post<AuthResponse>("/auth/login", {
         email,
         password,
       })
@@ -60,24 +60,21 @@ export default function LoginPage() {
   const handleGoogleAuth = async () => {
     setIsLoading(true)
     try {
-      const response = await api.post<GoogleAuthResponse>("/auth/google")
+      const response = await api.get<GoogleAuthResponse>("/auth/google")
 
       if (response.data.url) {
         toast.info("Redirigiendo a Google...", {
           description: "Serás redirigido para autenticarte",
         })
-
         // Redirigir a la URL de autenticación de Google
         window.location.href = response.data.url
       }
     } catch (err) {
       const apiError = err as ApiError
       console.error("Google auth error:", apiError)
-
       toast.error("Error de conexión", {
         description: "No se pudo conectar con Google. Intenta nuevamente.",
       })
-
       setIsLoading(false)
     }
   }
