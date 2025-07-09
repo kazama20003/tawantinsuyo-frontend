@@ -1,25 +1,40 @@
 "use client"
 
+import Link from "next/link"
+
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Menu, Instagram, Linkedin, X, Search, User, MapPin, Calendar, Users, Phone, Globe } from "lucide-react"
-import { useEffect, useState } from "react"
-import Link from "next/link"
+import { Menu, Instagram, Linkedin, X, Search, User, Phone, Globe, ChevronDown, MessageCircle } from "lucide-react"
 import Image from "next/image"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
+import { getTranslation, type Locale } from "@/lib/i18n"
 
 export default function Header() {
   const [isHeaderCompact, setIsHeaderCompact] = useState(false)
-  const [, setScrollY] = useState(0)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [selectedLanguage, setSelectedLanguage] = useState("ES")
+  const [isLanguageOpen, setIsLanguageOpen] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
+
+  // Get current locale from pathname
+  const currentLocale: Locale = pathname.startsWith("/en") ? "en" : "es"
+
+  // Translation helper
+  const t = (key: keyof typeof import("@/lib/i18n").translations.es) => getTranslation(currentLocale, key)
+
+  // Get localized link
+  const getLocalizedLink = (path: string): string => {
+    if (currentLocale === "en") {
+      return `/en${path}`
+    }
+    return path
+  }
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY
-      setScrollY(currentScrollY)
-
       if (currentScrollY > 100) {
         setIsHeaderCompact(true)
       } else {
@@ -44,6 +59,11 @@ export default function Header() {
     }
   }, [])
 
+  // Update selected language based on current locale
+  useEffect(() => {
+    setSelectedLanguage(currentLocale === "en" ? "EN" : "ES")
+  }, [currentLocale])
+
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen)
   }
@@ -53,19 +73,77 @@ export default function Header() {
   }
 
   const languages = [
-    { code: "ES", name: "Español", flag: "🇪🇸" },
-    { code: "EN", name: "English", flag: "🇺🇸" },
-    { code: "FR", name: "Français", flag: "🇫🇷" },
-    { code: "PT", name: "Português", flag: "🇧🇷" },
+    { code: "ES", name: "Español", flag: "🇪🇸", locale: "es", path: "" },
+    { code: "EN", name: "English", flag: "🇺🇸", locale: "en", path: "/en" },
   ]
+
+  // Función para mostrar notificaciones
+  const showNotification = (message: string, type: "success" | "error" | "info" = "info") => {
+    if (typeof window === "undefined") return
+
+    const notification = document.createElement("div")
+    const bgColor = type === "success" ? "bg-green-600" : type === "error" ? "bg-red-600" : "bg-blue-600"
+
+    notification.className = `fixed top-24 right-4 ${bgColor} text-white px-4 py-3 rounded-lg shadow-lg z-[100] font-bold text-sm max-w-sm animate-in slide-in-from-right duration-300`
+    notification.textContent = message
+    document.body.appendChild(notification)
+
+    setTimeout(() => {
+      notification.classList.add("animate-out", "slide-out-to-right")
+      setTimeout(() => notification.remove(), 300)
+    }, 4000)
+  }
+
+  // Función principal para cambiar idioma con navegación
+  const handleLanguageChange = (newLanguage: string) => {
+    const targetLang = languages.find((lang) => lang.code === newLanguage)
+    if (!targetLang) return
+
+    console.log(`🌐 Navegando a versión en ${targetLang.name}`)
+
+    // Construir nueva URL con el idioma manteniendo la ruta actual
+    let newPath = pathname
+
+    // Remover prefijo de idioma existente si existe
+    if (pathname.startsWith("/en")) {
+      newPath = pathname.replace(/^\/en/, "")
+    }
+
+    // Agregar nuevo prefijo de idioma si es necesario
+    if (targetLang.locale === "en") {
+      newPath = `/en${newPath || "/"}`
+    } else {
+      newPath = newPath || "/"
+    }
+
+    // Actualizar el idioma del documento
+    document.documentElement.lang = targetLang.locale
+    setSelectedLanguage(newLanguage)
+
+    // Navegar a la nueva URL
+    if (newPath !== pathname) {
+      router.push(newPath)
+    }
+
+    showNotification(`🌐 ${t("languageChanged")}`, "success")
+    setIsLanguageOpen(false)
+  }
 
   // Function to check if current path matches the link
   const isActivePage = (href: string) => {
-    if (href === "/" || href === "/home") {
-      return pathname === "/" || pathname === "/home"
+    const localizedHref = getLocalizedLink(href)
+    if (localizedHref === getLocalizedLink("/") || localizedHref === getLocalizedLink("/home")) {
+      return pathname === getLocalizedLink("/") || pathname === getLocalizedLink("/home")
     }
-    return pathname.startsWith(href)
+    return pathname.startsWith(localizedHref)
   }
+
+  const navigation = [
+    { name: t("destinations"), href: getLocalizedLink("/destinations") },
+    { name: t("tours"), href: getLocalizedLink("/tours") },
+    { name: t("itineraries"), href: getLocalizedLink("/itineraries") },
+    { name: t("aboutUs"), href: getLocalizedLink("/about-us") },
+  ]
 
   return (
     <>
@@ -76,6 +154,7 @@ export default function Header() {
             ? "rounded-2xl" // Solo bordes, sin márgenes
             : "rounded-t-3xl"
         }`}
+        data-no-translate
       >
         {/* Top bar - contracts/expands smoothly */}
         <div
@@ -90,7 +169,7 @@ export default function Header() {
             </div>
             <div className="flex items-center gap-6">
               <span className="hover:text-blue-200 transition-colors duration-300 cursor-pointer hidden sm:block">
-                Agencia de Turismo Certificada
+                {t("certifiedAgency")}
               </span>
               <span className="hover:text-blue-200 transition-colors duration-300 cursor-pointer flex items-center gap-1">
                 <Phone className="w-3 h-3" />
@@ -113,37 +192,30 @@ export default function Header() {
             <div className="hidden lg:grid lg:grid-cols-3 lg:gap-8 items-center w-full">
               {/* Left Navigation */}
               <nav className="flex items-center gap-6 justify-start">
-                <Link
-                  href="/destinations"
-                  className={`font-bold uppercase tracking-wide hover:text-blue-600 hover:scale-105 transition-all duration-300 cursor-pointer relative group ${
-                    isActivePage("/destinations") ? "text-blue-600" : "text-black"
-                  }`}
-                >
-                  DESTINOS
-                  <span
-                    className={`absolute bottom-0 left-0 h-0.5 bg-blue-600 transition-all duration-500 ${
-                      isActivePage("/destinations") ? "w-full" : "w-0 group-hover:w-full"
+                {navigation.slice(0, 2).map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`font-bold uppercase tracking-wide hover:text-blue-600 hover:scale-105 transition-all duration-300 cursor-pointer relative group ${
+                      isActivePage(item.href) ? "text-blue-600" : "text-black"
                     }`}
-                  ></span>
-                </Link>
-                <Link
-                  href="/tours"
-                  className={`font-bold uppercase tracking-wide hover:text-blue-600 hover:scale-105 transition-all duration-300 cursor-pointer relative group ${
-                    isActivePage("/tours") ? "text-blue-600" : "text-black"
-                  }`}
-                >
-                  TOURS
-                  <span
-                    className={`absolute bottom-0 left-0 h-0.5 bg-blue-600 transition-all duration-500 ${
-                      isActivePage("/tours") ? "w-full" : "w-0 group-hover:w-full"
-                    }`}
-                  ></span>
-                </Link>
+                  >
+                    {item.name}
+                    <span
+                      className={`absolute bottom-0 left-0 h-0.5 bg-blue-600 transition-all duration-500 ${
+                        isActivePage(item.href) ? "w-full" : "w-0 group-hover:w-full"
+                      }`}
+                    ></span>
+                  </Link>
+                ))}
               </nav>
 
               {/* Center Logo */}
               <div className="flex items-center justify-center">
-                <Link href="/" className="text-center transform hover:scale-105 transition-transform duration-300">
+                <Link
+                  href={getLocalizedLink("/")}
+                  className="text-center transform hover:scale-105 transition-transform duration-300"
+                >
                   {isHeaderCompact ? (
                     <div className="relative w-20 h-20 transition-all duration-700 ease-out">
                       <Image
@@ -165,32 +237,22 @@ export default function Header() {
 
               {/* Right Navigation */}
               <nav className="flex items-center gap-6 justify-end">
-                <Link
-                  href="/itineraries"
-                  className={`font-bold uppercase tracking-wide hover:text-blue-600 hover:scale-105 transition-all duration-300 cursor-pointer relative group ${
-                    isActivePage("/itineraries") ? "text-blue-600" : "text-black"
-                  }`}
-                >
-                  ITINERARIOS
-                  <span
-                    className={`absolute bottom-0 left-0 h-0.5 bg-blue-600 transition-all duration-500 ${
-                      isActivePage("/itineraries") ? "w-full" : "w-0 group-hover:w-full"
+                {navigation.slice(2).map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`font-bold uppercase tracking-wide hover:text-blue-600 hover:scale-105 transition-all duration-300 cursor-pointer relative group ${
+                      isActivePage(item.href) ? "text-blue-600" : "text-black"
                     }`}
-                  ></span>
-                </Link>
-                <Link
-                  href="/about-us"
-                  className={`font-bold uppercase tracking-wide hover:text-blue-600 hover:scale-105 transition-all duration-300 cursor-pointer relative group ${
-                    isActivePage("/about-us") ? "text-blue-600" : "text-black"
-                  }`}
-                >
-                  NOSOTROS
-                  <span
-                    className={`absolute bottom-0 left-0 h-0.5 bg-blue-600 transition-all duration-500 ${
-                      isActivePage("/about-us") ? "w-full" : "w-0 group-hover:w-full"
-                    }`}
-                  ></span>
-                </Link>
+                  >
+                    {item.name}
+                    <span
+                      className={`absolute bottom-0 left-0 h-0.5 bg-blue-600 transition-all duration-500 ${
+                        isActivePage(item.href) ? "w-full" : "w-0 group-hover:w-full"
+                      }`}
+                    ></span>
+                  </Link>
+                ))}
               </nav>
             </div>
 
@@ -204,7 +266,7 @@ export default function Header() {
               <div className="relative flex-1 max-w-md">
                 <Input
                   type="text"
-                  placeholder="Buscar destinos, tours..."
+                  placeholder={t("searchDestinationsTours")}
                   className="w-full pl-10 pr-4 py-2 border-2 border-black rounded-full focus:border-blue-600 focus:ring-2 focus:ring-blue-200 transition-all duration-300"
                 />
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -213,36 +275,63 @@ export default function Header() {
               {/* Action Buttons */}
               <div className="flex items-center gap-4">
                 {/* Language Selector */}
-                <div className="relative group">
-                  <button className="flex items-center gap-2 px-3 py-2 border-2 border-black rounded-full hover:border-blue-600 transition-all duration-300">
+                <div className="relative">
+                  <button
+                    onClick={() => setIsLanguageOpen(!isLanguageOpen)}
+                    className="flex items-center gap-2 px-3 py-2 border-2 border-black rounded-full hover:border-blue-600 transition-all duration-300"
+                  >
                     <Globe className="w-4 h-4" />
                     <span className="font-bold">{selectedLanguage}</span>
+                    <ChevronDown className="w-4 h-4" />
                   </button>
-                  <div className="absolute top-full right-0 mt-2 bg-white border-2 border-black rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300">
-                    {languages.map((lang) => (
-                      <button
-                        key={lang.code}
-                        onClick={() => setSelectedLanguage(lang.code)}
-                        className="flex items-center gap-3 px-4 py-2 hover:bg-blue-50 first:rounded-t-lg last:rounded-b-lg w-full text-left"
-                      >
-                        <span>{lang.flag}</span>
-                        <span className="font-medium">{lang.name}</span>
-                      </button>
-                    ))}
-                  </div>
+
+                  {isLanguageOpen && (
+                    <div className="absolute top-full right-0 mt-2 bg-white border-2 border-black rounded-lg shadow-xl min-w-48 z-50">
+                      <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-green-50">
+                        <div className="text-sm font-bold text-gray-700">{t("selectLanguage")}</div>
+                        <div className="text-xs text-gray-600 mt-1">{t("languageChangeWithNavigation")}</div>
+                      </div>
+
+                      <div className="py-1">
+                        {languages.map((lang) => (
+                          <button
+                            key={lang.code}
+                            onClick={() => handleLanguageChange(lang.code)}
+                            className={`flex items-center gap-3 px-4 py-3 hover:bg-blue-50 w-full text-left transition-colors ${
+                              selectedLanguage === lang.code ? "bg-blue-100 border-l-4 border-blue-600" : ""
+                            }`}
+                          >
+                            <span className="text-xl">{lang.flag}</span>
+                            <div className="flex-1">
+                              <span className="font-medium block">{lang.name}</span>
+                              <span className="text-xs text-gray-500">
+                                {lang.code} • {lang.locale} • {lang.path || "/"}
+                              </span>
+                            </div>
+                            {selectedLanguage === lang.code && <div className="w-2 h-2 bg-blue-600 rounded-full"></div>}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="border-t border-gray-200 bg-gradient-to-r from-green-50 to-blue-50 px-4 py-2">
+                        <div className="text-xs text-gray-600 text-center">{t("seoOptimizedMultilingual")}</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <Link href="/login">
+                <Link href={getLocalizedLink("/login")}>
                   <Button
                     variant="outline"
-                    className="border-2 border-black text-black hover:bg-blue-50 hover:border-blue-600 hover:text-blue-600 transition-all duration-300 flex items-center gap-2"
+                    className="border-2 border-black text-black hover:bg-blue-50 hover:border-blue-600 hover:text-blue-600 transition-all duration-300 flex items-center gap-2 bg-transparent"
                   >
                     <User className="w-4 h-4" />
-                    INICIAR SESIÓN
+                    {t("login")}
                   </Button>
                 </Link>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 text-lg rounded-full border-2 border-black transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                  RESERVAR AHORA
+
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 text-lg rounded-full border-2 border-black transition-all duration-300 hover:scale-110 hover:shadow-xl">
+                  {t("bookNow")}
                 </Button>
               </div>
             </div>
@@ -259,21 +348,20 @@ export default function Header() {
               </div>
 
               <div className="flex items-center justify-center flex-1">
-                <Link href="/" className="text-center">
+                <Link href={getLocalizedLink("/")} className="text-center">
                   {isHeaderCompact ? (
                     <div className="relative w-16 h-16 transition-all duration-700 ease-out">
                       <Image
                         src="https://res.cloudinary.com/dlzq3rsot/image/upload/v1750535406/Imagen_de_WhatsApp_2025-06-02_a_las_12.51.49_e3f17722_uebdkn.jpg"
                         alt="Tawantinsuyo Peru Logo"
                         fill
-                        className="object-contain"
-                        priority
+                        className="object-contain group-hover:scale-110 transition-transform duration-300"
                       />
                     </div>
                   ) : (
                     <div>
-                      <div className="text-2xl font-black text-blue-600">TAWANTINSUYO</div>
-                      <div className="bg-black text-white px-3 py-1 rounded-lg font-black text-lg">PERU</div>
+                      <div className="text-2xl font-black text-blue-600 leading-tight">TAWANTINSUYO</div>
+                      <div className="text-xs md:text-sm text-gray-600 font-medium -mt-1">PERU TOURS</div>
                     </div>
                   )}
                 </Link>
@@ -281,7 +369,7 @@ export default function Header() {
 
               <div className="flex items-center gap-3">
                 <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-full border-2 border-black transition-all duration-300">
-                  RESERVAR
+                  {t("bookNow")}
                 </Button>
               </div>
             </div>
@@ -295,253 +383,129 @@ export default function Header() {
                 >
                   <Menu className="w-6 h-6" />
                 </button>
+
                 {/* Mobile Language Selector */}
-                <div className="relative group">
-                  <button className="flex items-center gap-1 px-2 py-1 border border-black rounded-full text-xs hover:border-blue-600 transition-all duration-300">
-                    <Globe className="w-3 h-3" />
-                    <span className="font-bold">{selectedLanguage}</span>
+                <div className="relative">
+                  <button
+                    onClick={() => setIsLanguageOpen(!isLanguageOpen)}
+                    className="flex items-center gap-1 px-2 py-1 border border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-all duration-300 bg-white/80 backdrop-blur-sm rounded-md"
+                  >
+                    <Globe className="w-3 h-3 md:w-4 md:h-4 text-gray-600" />
+                    <span className="text-xs md:text-sm font-medium text-gray-700">
+                      {currentLocale === "en" ? "EN" : "ES"}
+                    </span>
+                    <ChevronDown className="w-3 h-3 md:w-4 md:h-4 text-gray-400" />
                   </button>
+
+                  {isLanguageOpen && (
+                    <div className="absolute right-0 mt-2 w-32 md:w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                      {languages.map((lang) => (
+                        <button
+                          key={lang.code}
+                          onClick={() => handleLanguageChange(lang.code)}
+                          className={`w-full text-left px-3 md:px-4 py-2 text-xs md:text-sm hover:bg-blue-50 transition-colors ${
+                            selectedLanguage === lang.code ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"
+                          }`}
+                        >
+                          {lang.flag} {lang.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="flex items-center justify-center flex-1">
-                <Link href="/" className="text-center">
+                <Link href={getLocalizedLink("/")} className="text-center">
                   {isHeaderCompact ? (
-                    <div className="relative w-14 h-14 transition-all duration-700 ease-out">
+                    <div className="relative w-12 h-12 transition-all duration-700 ease-out">
                       <Image
                         src="https://res.cloudinary.com/dlzq3rsot/image/upload/v1750535406/Imagen_de_WhatsApp_2025-06-02_a_las_12.51.49_e3f17722_uebdkn.jpg"
                         alt="Tawantinsuyo Peru Logo"
                         fill
-                        className="object-contain"
-                        priority
+                        className="object-contain group-hover:scale-110 transition-transform duration-300"
                       />
                     </div>
                   ) : (
                     <div>
-                      <div className="text-xl font-black text-blue-600">TAWANTINSUYO</div>
-                      <div className="bg-black text-white px-2 py-1 rounded-lg font-black text-sm">PERU</div>
+                      <div className="text-lg font-black text-blue-600 leading-tight">TAWANTINSUYO</div>
+                      <div className="text-xs md:text-sm text-gray-600 font-medium -mt-1">PERU TOURS</div>
                     </div>
                   )}
                 </Link>
               </div>
 
               <div className="flex items-center">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-2 rounded-full border-2 border-black text-sm transition-all duration-300">
-                  RESERVAR
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 text-sm rounded-full border-2 border-black transition-all duration-300">
+                  {t("bookNow")}
                 </Button>
               </div>
             </div>
           </div>
         </div>
-      </header>
 
-      {/* Compact Mobile Menu Overlay */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm animate-in fade-in duration-300 lg:hidden">
-          <div className="fixed top-4 left-4 right-4 bg-white rounded-2xl border-4 border-black shadow-2xl animate-in slide-in-from-top duration-500 max-h-[90vh] overflow-hidden">
-            <div className="flex flex-col">
-              {/* Compact Menu Header */}
-              <div className="flex justify-between items-center p-4 bg-blue-600 border-b-2 border-black rounded-t-xl">
-                <div className="text-center flex-1">
-                  <div className="text-lg font-black text-white">TAWANTINSUYO</div>
-                  <div className="bg-black text-white px-2 py-1 rounded-lg font-black text-sm inline-block">PERU</div>
-                </div>
-                <button
-                  onClick={closeMobileMenu}
-                  className="p-1 text-white hover:bg-blue-700 rounded-lg transition-colors duration-300"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              {/* Compact Menu Content */}
-              <div className="max-h-[70vh] overflow-y-auto">
-                {/* Language Selection - Compact */}
-                <div className="p-4 border-b border-gray-100">
-                  <h3 className="text-sm font-bold text-gray-600 mb-2 uppercase tracking-wide">Idioma</h3>
-                  <div className="grid grid-cols-4 gap-2">
-                    {languages.map((lang) => (
-                      <button
-                        key={lang.code}
-                        onClick={() => setSelectedLanguage(lang.code)}
-                        className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-all duration-300 ${
-                          selectedLanguage === lang.code
-                            ? "border-blue-600 bg-blue-50"
-                            : "border-gray-200 hover:border-blue-300"
-                        }`}
-                      >
-                        <span className="text-lg">{lang.flag}</span>
-                        <span className="text-xs font-medium">{lang.code}</span>
-                      </button>
-                    ))}
+        {/* Mobile Menu Overlay */}
+        {isMobileMenuOpen && (
+          <div className="fixed inset-0 z-40 lg:hidden">
+            <div className="fixed inset-0 bg-black bg-opacity-50" onClick={closeMobileMenu}></div>
+            <div className="fixed top-0 left-0 w-80 h-full bg-white shadow-lg transform transition-transform duration-300 ease-in-out">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-8">
+                  <div className="text-center">
+                    <div className="text-xl font-black text-blue-600">TAWANTINSUYO</div>
+                    <div className="bg-black text-white px-3 py-1 rounded-lg font-black text-sm">PERU</div>
                   </div>
+                  <button onClick={closeMobileMenu} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                    <X className="w-6 h-6 text-gray-600" />
+                  </button>
                 </div>
 
-                {/* Search Section - Compact */}
-                <div className="p-4 border-b border-gray-100">
-                  <div className="relative">
-                    <Input
-                      type="text"
-                      placeholder="Buscar..."
-                      className="w-full pl-10 pr-4 py-2 border-2 border-black rounded-full focus:border-blue-600 bg-blue-50"
-                    />
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-600" />
-                  </div>
-                </div>
-
-                {/* Main Navigation - Compact */}
-                <div className="p-4">
-                  <div className="space-y-2">
+                <nav className="space-y-4">
+                  {navigation.map((item) => (
                     <Link
-                      href="/destinations"
+                      key={item.name}
+                      href={item.href}
                       onClick={closeMobileMenu}
-                      className={`flex items-center gap-3 p-3 hover:bg-blue-50 rounded-lg transition-colors duration-300 cursor-pointer group ${
-                        isActivePage("/destinations") ? "bg-blue-50 border-l-4 border-blue-600" : ""
+                      className={`block px-4 py-3 rounded-lg font-medium transition-all duration-300 ${
+                        isActivePage(item.href)
+                          ? "bg-blue-600 text-white"
+                          : "text-gray-700 hover:bg-blue-50 hover:text-blue-600"
                       }`}
                     >
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 ${
-                          isActivePage("/destinations") ? "bg-blue-600" : "bg-gray-400"
-                        }`}
-                      >
-                        <MapPin className="w-4 h-4 text-white" />
-                      </div>
-                      <div>
-                        <div
-                          className={`text-lg font-black uppercase ${
-                            isActivePage("/destinations") ? "text-blue-600" : "text-black"
-                          }`}
-                        >
-                          DESTINOS
-                        </div>
-                        <div className="text-xs text-gray-600">Lugares increíbles</div>
-                      </div>
+                      {item.name}
                     </Link>
+                  ))}
+                </nav>
 
-                    <Link
-                      href="/tours"
-                      onClick={closeMobileMenu}
-                      className={`flex items-center gap-3 p-3 hover:bg-blue-50 rounded-lg transition-colors duration-300 cursor-pointer group ${
-                        isActivePage("/tours") ? "bg-blue-50 border-l-4 border-blue-600" : ""
-                      }`}
-                    >
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 ${
-                          isActivePage("/tours") ? "bg-blue-600" : "bg-gray-400"
-                        }`}
-                      >
-                        <Calendar className="w-4 h-4 text-white" />
-                      </div>
-                      <div>
-                        <div
-                          className={`text-lg font-black uppercase ${
-                            isActivePage("/tours") ? "text-blue-600" : "text-black"
-                          }`}
-                        >
-                          TOURS
-                        </div>
-                        <div className="text-xs text-gray-600">Experiencias guiadas</div>
-                      </div>
-                    </Link>
-
-                    <Link
-                      href="/itineraries"
-                      onClick={closeMobileMenu}
-                      className={`flex items-center gap-3 p-3 hover:bg-blue-50 rounded-lg transition-colors duration-300 cursor-pointer group ${
-                        isActivePage("/itineraries") ? "bg-blue-50 border-l-4 border-blue-600" : ""
-                      }`}
-                    >
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 ${
-                          isActivePage("/itineraries") ? "bg-blue-600" : "bg-gray-400"
-                        }`}
-                      >
-                        <MapPin className="w-4 h-4 text-white" />
-                      </div>
-                      <div>
-                        <div
-                          className={`text-lg font-black uppercase ${
-                            isActivePage("/itineraries") ? "text-blue-600" : "text-black"
-                          }`}
-                        >
-                          ITINERARIOS
-                        </div>
-                        <div className="text-xs text-gray-600">Rutas personalizadas</div>
-                      </div>
-                    </Link>
-
-                    <Link
-                      href="/about-us"
-                      onClick={closeMobileMenu}
-                      className={`flex items-center gap-3 p-3 hover:bg-blue-50 rounded-lg transition-colors duration-300 cursor-pointer group ${
-                        isActivePage("/about-us") ? "bg-blue-50 border-l-4 border-blue-600" : ""
-                      }`}
-                    >
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 ${
-                          isActivePage("/about-us") ? "bg-blue-600" : "bg-gray-400"
-                        }`}
-                      >
-                        <Users className="w-4 h-4 text-white" />
-                      </div>
-                      <div>
-                        <div
-                          className={`text-lg font-black uppercase ${
-                            isActivePage("/about-us") ? "text-blue-600" : "text-black"
-                          }`}
-                        >
-                          NOSOTROS
-                        </div>
-                        <div className="text-xs text-gray-600">Nuestro equipo</div>
-                      </div>
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Action Buttons - Compact */}
-                <div className="p-4 space-y-2 border-t border-gray-100">
-                  <Link href="/login" onClick={closeMobileMenu}>
+                {/* Mobile Contact */}
+                <div className="pt-4 border-t border-gray-200 mt-6">
+                  <div className="grid grid-cols-2 gap-2">
                     <Button
                       variant="outline"
-                      className="w-full py-2 text-sm border-2 border-black text-black hover:bg-blue-50 hover:border-blue-600 hover:text-blue-600 transition-all duration-300 flex items-center justify-center gap-2"
+                      size="sm"
+                      className="border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white bg-transparent"
                     >
-                      <User className="w-4 h-4" />
-                      INICIAR SESIÓN
+                      <Phone className="w-4 h-4 mr-2" />
+                      {t("contact")}
                     </Button>
-                  </Link>
-                  <Button
-                    onClick={closeMobileMenu}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 text-sm rounded-lg border-2 border-black transition-all duration-300"
-                  >
-                    RESERVAR AHORA
-                  </Button>
-                </div>
-              </div>
-
-              {/* Compact Menu Footer */}
-              <div className="p-3 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Instagram className="w-4 h-4 text-blue-600 hover:text-blue-800 transition-colors cursor-pointer" />
-                    <Linkedin className="w-4 h-4 text-blue-600 hover:text-blue-800 transition-colors cursor-pointer" />
-                  </div>
-                  <div className="flex items-center gap-1 text-blue-600 font-semibold text-sm">
-                    <Phone className="w-3 h-3" />
-                    +51 984 123 456
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-green-600 text-green-600 hover:bg-green-600 hover:text-white bg-transparent"
+                    >
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      WhatsApp
+                    </Button>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Spacer for fixed header - Responsive */}
-      <div
-        className={`transition-all duration-700 ease-out ${
-          isHeaderCompact ? "h-[80px] md:h-[100px]" : "h-[120px] md:h-[160px]"
-        }`}
-      ></div>
+        {/* Click outside to close language dropdown */}
+        {isLanguageOpen && <div className="fixed inset-0 z-40" onClick={() => setIsLanguageOpen(false)} />}
+      </header>
     </>
   )
 }
