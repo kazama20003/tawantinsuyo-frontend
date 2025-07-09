@@ -7,75 +7,144 @@ import { Eye, EyeOff, ArrowLeft, Mail, Lock, Globe, Shield, Users, Star } from "
 import Image from "next/image"
 import Link from "next/link"
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { api } from "@/lib/axiosInstance"
-import Cookies from "js-cookie"
 import { toast } from "sonner"
-import type { ApiError, AuthResponse, GoogleAuthResponse } from "@/types/api"
+import { useEffect } from "react"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+    rememberMe: false,
+  })
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const urlError = searchParams.get("error")
+    if (urlError) {
+      toast.error("Error de autenticación", {
+        description: decodeURIComponent(urlError),
+      })
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     setIsLoading(true)
 
     try {
-      const response = await api.post<AuthResponse>("/auth/login", {
-        email,
-        password,
+      console.log("Enviando datos de login:", { email: formData.email })
+      const response = await api.post("/auth/login", {
+        email: formData.email,
+        password: formData.password,
       })
+      console.log("Respuesta del login:", response.data)
 
-      const { access_token } = response.data
+      // Verificar si la respuesta tiene el token
+      if (response.data && response.data.access_token) {
+        // Store token in cookies
+        const maxAge = formData.rememberMe ? 2592000 : 86400 // 30 días o 1 día
+        document.cookie = `token=${response.data.access_token}; path=/; max-age=${maxAge}; secure; samesite=strict`
 
-      // Solo guardar el token en cookies
-      Cookies.set("token", access_token, { expires: 7 }) // Expira en 7 días
+        // Mostrar notificación de éxito
+        toast.success("¡Bienvenido de vuelta!", {
+          description: `Hola ${response.data.user?.fullName || response.data.user?.email || ""}`,
+        })
 
-      toast.success("¡Inicio de sesión exitoso!", {
-        description: "Redirigiendo al dashboard...",
-      })
+        console.log("Access token guardado, redirigiendo al dashboard...")
+        // Pequeño delay para que se vea la notificación
+        setTimeout(() => {
+          router.push("/dashboard")
+        }, 1000)
+      } else if (response.data && response.data.token) {
+        // En caso de que el backend use 'token' en lugar de 'access_token'
+        const maxAge = formData.rememberMe ? 2592000 : 86400
+        document.cookie = `token=${response.data.token}; path=/; max-age=${maxAge}; secure; samesite=strict`
 
-      // Redirigir al dashboard después de un breve delay
-      setTimeout(() => {
-        router.push("/dashboard")
-      }, 1000)
-    } catch (err) {
-      const apiError = err as ApiError
-      const errorMessage = apiError.response?.data?.message || "Error al iniciar sesión"
+        toast.success("¡Bienvenido de vuelta!", {
+          description: `Hola ${response.data.user?.fullName || response.data.user?.email || ""}`,
+        })
 
-      toast.error("Error al iniciar sesión", {
-        description: errorMessage,
-      })
+        setTimeout(() => {
+          router.push("/dashboard")
+        }, 1000)
+      } else {
+        console.error("No se encontró token en la respuesta:", response.data)
+        toast.error("Error de autenticación", {
+          description: "No se recibió token de autenticación del servidor",
+        })
+      }
+    } catch (error: unknown) {
+      console.error("Error completo de login:", error)
+      if (error && typeof error === "object" && "response" in error) {
+        const axiosError = error as {
+          response?: {
+            data?: { message?: string; error?: string }
+            status?: number
+          }
+        }
+        console.error("Respuesta de error:", axiosError.response)
 
-      console.error("Login error:", apiError)
+        if (axiosError.response?.status === 401) {
+          toast.error("Credenciales incorrectas", {
+            description: "Verifica tu email y contraseña e intenta nuevamente",
+          })
+        } else if (axiosError.response?.status === 400) {
+          toast.error("Datos inválidos", {
+            description: axiosError.response?.data?.message || "Verifica los datos ingresados",
+          })
+        } else if (axiosError.response?.status === 429) {
+          toast.error("Demasiados intentos", {
+            description: "Has excedido el límite de intentos. Intenta más tarde",
+          })
+        } else if (axiosError.response?.data?.message) {
+          toast.error("Error de autenticación", {
+            description: axiosError.response.data.message,
+          })
+        } else if (axiosError.response?.data?.error) {
+          toast.error("Error de autenticación", {
+            description: axiosError.response.data.error,
+          })
+        } else {
+          toast.error("Error del servidor", {
+            description: "Hubo un problema con el servidor. Intenta nuevamente",
+          })
+        }
+      } else {
+        toast.error("Error de conexión", {
+          description: "Verifica tu conexión a internet e intenta nuevamente",
+        })
+      }
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleGoogleAuth = async () => {
-    setIsLoading(true)
-    try {
-      const response = await api.get<GoogleAuthResponse>("/auth/google")
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }))
+  }
 
-      if (response.data.url) {
-        toast.info("Redirigiendo a Google...", {
-          description: "Serás redirigido para autenticarte",
-        })
-        // Redirigir a la URL de autenticación de Google
-        window.location.href = response.data.url
-      }
-    } catch (err) {
-      const apiError = err as ApiError
-      console.error("Google auth error:", apiError)
-      toast.error("Error de conexión", {
-        description: "No se pudo conectar con Google. Intenta nuevamente.",
+  const handleGoogleLogin = async () => {
+    try {
+      toast.loading("Redirigiendo a Google...", {
+        description: "Te estamos llevando a la página de Google",
       })
-      setIsLoading(false)
+      // This will redirect to Google OAuth
+      window.location.href = `${api.defaults.baseURL}/auth/google`
+    } catch (error) {
+      console.error("Google login error:", error)
+      toast.error("Error con Google", {
+        description: "No se pudo iniciar sesión con Google. Intenta nuevamente",
+      })
     }
   }
 
@@ -197,8 +266,9 @@ export default function LoginPage() {
                       <Input
                         id="email"
                         type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        name="email"
                         placeholder="tu@email.com"
                         className="w-full h-12 lg:h-14 pl-12 pr-4 border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:ring-2 focus:ring-blue-200 transition-all duration-300 text-base"
                         required
@@ -220,8 +290,9 @@ export default function LoginPage() {
                       <Input
                         id="password"
                         type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        name="password"
                         placeholder="Tu contraseña"
                         className="w-full h-12 lg:h-14 pl-12 pr-12 border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:ring-2 focus:ring-blue-200 transition-all duration-300 text-base"
                         required
@@ -245,6 +316,9 @@ export default function LoginPage() {
                       <input
                         type="checkbox"
                         className="w-4 h-4 text-blue-600 border-2 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                        checked={formData.rememberMe}
+                        onChange={handleInputChange}
+                        name="rememberMe"
                         disabled={isLoading}
                       />
                       <span className="ml-2 text-gray-600">Recordarme</span>
@@ -285,7 +359,7 @@ export default function LoginPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={handleGoogleAuth}
+                  onClick={handleGoogleLogin}
                   className="w-full border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 font-bold py-3 lg:py-4 h-12 lg:h-14 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed bg-white text-base lg:text-lg"
                   disabled={isLoading}
                 >
