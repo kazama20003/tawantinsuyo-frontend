@@ -13,15 +13,28 @@ export const metadata: Metadata = {
   description:
     "Agencia de turismo especializada en tours por Perú. Descubre Machu Picchu, Cusco, el Valle Sagrado y más destinos increíbles con guías expertos locales.",
   keywords: [
-    "turismo Perú",
-    "tours Machu Picchu",
-    "viajes Cusco",
-    "agencia turismo",
-    "Valle Sagrado",
-    "Tawantinsuyo",
-    "guías locales",
-    "aventura Perú",
-  ],
+  "turismo Perú",
+  "tours Machu Picchu",
+  "viajes Cusco",
+  "agencia turismo",
+  "Valle Sagrado",
+  "Tawantinsuyo",
+  "guías locales",
+  "aventura Perú",
+  "tours Arequipa",
+  "Colca full day",
+  "Chivay Arequipa",
+  "Cabanaconde",
+  "mirador del cóndor",
+  "tour Valle del Colca",
+  "tours en Arequipa",
+  "full day Chivay",
+  "excursiones desde Arequipa",
+  "tour Colca Cañón",
+  "viajes Arequipa Cusco",
+  "experiencias andinas",
+],
+
   authors: [{ name: "Tawantinsuyo Peru" }],
   creator: "Tawantinsuyo Peru",
   publisher: "Tawantinsuyo Peru",
@@ -48,7 +61,7 @@ export const metadata: Metadata = {
       "Agencia de turismo especializada en tours por Perú. Descubre Machu Picchu, Cusco, el Valle Sagrado y más destinos increíbles con guías expertos locales.",
     images: [
       {
-        url: "/images/og-image.jpg",
+        url: "/screenshot/image.png",
         width: 1200,
         height: 630,
         alt: "Tawantinsuyo Peru - Tours por Perú",
@@ -60,7 +73,7 @@ export const metadata: Metadata = {
     title: "Tawantinsuyo Peru - Descubre la Magia del Perú",
     description:
       "Agencia de turismo especializada en tours por Perú. Descubre Machu Picchu, Cusco, el Valle Sagrado y más destinos increíbles.",
-    images: ["/images/twitter-image.jpg"],
+    images: ["/screenshot/image.png"],
     creator: "@tawantinsuyoperu",
   },
   robots: {
@@ -75,9 +88,9 @@ export const metadata: Metadata = {
     },
   },
   verification: {
-    google: "your-google-verification-code",
-    yandex: "your-yandex-verification-code",
-  },
+  google: "B9Mxs9XUBbqO50FlTSr3-IIKmRFy1GPukelZD7m9-rA",
+},
+
 }
 
 export default function RootLayout({
@@ -87,15 +100,18 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <head>
-        <link rel="icon" href="/favicon.ico" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#2563eb" />
-        <meta name="msapplication-TileColor" content="#2563eb" />
-      </head>
+          <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <meta name="theme-color" content="#2563eb" />
+          <meta name="msapplication-TileColor" content="#2563eb" />
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <link rel="icon" href="/favicon.ico" />
+          <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+          <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+          <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+          <link rel="manifest" href="/manifest.json" />
+        </head>
+
       <body className={inter.className}>{children}</body>
     </html>
   )

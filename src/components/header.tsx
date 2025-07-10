@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Menu, Instagram, Linkedin, X, Search, User, Phone, Globe, ChevronDown, MessageCircle } from "lucide-react"
+import { Menu, Linkedin, X, Search, User, Phone, Globe, ChevronDown, MessageCircle, Facebook } from "lucide-react"
 import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { getTranslation, type Locale } from "@/lib/i18n"
@@ -164,7 +164,7 @@ export default function Header() {
         >
           <div className="w-full flex justify-between items-center text-sm">
             <div className="flex items-center gap-4">
-              <Instagram className="w-4 h-4 hover:text-blue-200 transition-colors duration-300 cursor-pointer" />
+              <Facebook className="w-4 h-4 hover:text-blue-200 transition-colors duration-300 cursor-pointer" />
               <Linkedin className="w-4 h-4 hover:text-blue-200 transition-colors duration-300 cursor-pointer" />
             </div>
             <div className="flex items-center gap-6">
@@ -173,7 +173,7 @@ export default function Header() {
               </span>
               <span className="hover:text-blue-200 transition-colors duration-300 cursor-pointer flex items-center gap-1">
                 <Phone className="w-3 h-3" />
-                +51 984 123 456
+                +51 913876154
               </span>
             </div>
           </div>

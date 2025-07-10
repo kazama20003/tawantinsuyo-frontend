@@ -1,18 +1,16 @@
-"use client"
-
 import type React from "react"
-import Footer from "@/components/footer"
 import Header from "@/components/header"
+import Footer from "@/components/footer"
 
 export default function HomeLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
   return (
     <>
       <Header />
-      {children}
+      <main className="pt-30 md:pt-36 lg:pt-40">{children}</main>
       <Footer />
     </>
   )
