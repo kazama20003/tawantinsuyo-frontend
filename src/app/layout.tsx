@@ -102,7 +102,7 @@ export const metadata: Metadata = {
       "Vive la magia del Perú con tours únicos. Desde Arequipa y el Colca hasta Machu Picchu y Cusco.",
     images: [
       {
-        url: "/twitter-image.jpg",
+        url: "/screenshot/tour.png",
         width: 1200,
         height: 630,
         alt: "Tawantinsuyo Peru - Tours y Experiencias Únicas",
@@ -158,13 +158,6 @@ export default function RootLayout({
         <link rel="preconnect" href="https://res.cloudinary.com" />
         <link rel="dns-prefetch" href="https://www.google-analytics.com" />
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
-        <link
-          rel="preload"
-          href="/fonts/inter-var.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
       </head>
       <body className={`${inter.className} antialiased`} suppressHydrationWarning>
         {children}
