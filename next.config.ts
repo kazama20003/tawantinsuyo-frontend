@@ -1,6 +1,7 @@
+/** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    appDir: true,
+    optimizePackageImports: ['lucide-react'],
   },
   eslint: {
     ignoreDuringBuilds: true,
@@ -11,79 +12,78 @@ const nextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: "https",
-        hostname: "res.cloudinary.com",
-        port: "",
-        pathname: "/**",
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        port: '',
+        pathname: '/**',
       },
       {
-        protocol: "https",
-        hostname: "images.unsplash.com",
-        port: "",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "plus.unsplash.com",
-        port: "",
-        pathname: "/**",
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        port: '',
+        pathname: '/**',
       },
     ],
+    formats: ['image/webp', 'image/avif'],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     unoptimized: true,
-  },
-  async rewrites() {
-    return [
-      {
-        source: "/en",
-        destination: "/",
-      },
-      {
-        source: "/en/tours",
-        destination: "/tours",
-      },
-      {
-        source: "/en/tours/:slug",
-        destination: "/tours/:slug",
-      },
-      {
-        source: "/en/destinations",
-        destination: "/destinations",
-      },
-      {
-        source: "/en/itineraries",
-        destination: "/itineraries",
-      },
-      {
-        source: "/en/about-us",
-        destination: "/about-us",
-      },
-      {
-        source: "/en/contact",
-        destination: "/contact",
-      },
-    ]
   },
   async headers() {
     return [
       {
-        source: "/(.*)",
+        source: '/robots.txt',
         headers: [
           {
-            key: "X-Frame-Options",
-            value: "DENY",
+            key: 'Content-Type',
+            value: 'text/plain',
           },
           {
-            key: "X-Content-Type-Options",
-            value: "nosniff",
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, s-maxage=86400',
+          },
+        ],
+      },
+      {
+        source: '/sitemap.xml',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/xml',
           },
           {
-            key: "Referrer-Policy",
-            value: "origin-when-cross-origin",
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, s-maxage=86400',
+          },
+        ],
+      },
+      {
+        source: '/manifest.json',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/manifest+json',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, s-maxage=86400',
           },
         ],
       },
     ]
   },
+  async rewrites() {
+    return [
+      {
+        source: '/robots.txt',
+        destination: '/api/robots',
+      },
+    ]
+  },
+  compress: true,
+  poweredByHeader: false,
+  generateEtags: true,
+  trailingSlash: false,
 }
 
 export default nextConfig
