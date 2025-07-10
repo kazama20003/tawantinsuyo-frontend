@@ -1,57 +1,68 @@
 import type { MetadataRoute } from "next"
 
-export default function robots(): MetadataRoute.Robots {
-  const baseUrl = "https://tawantinsuyoperu.com"
-
+export default function manifest(): MetadataRoute.Manifest {
   return {
-    rules: [
+    name: "Tawantinsuyo Peru - Tours y Experiencias Únicas",
+    short_name: "Tawantinsuyo Peru",
+    description:
+      "Descubre la magia del Perú con nuestros tours especializados. Experiencias únicas en Cusco, Machu Picchu y más destinos increíbles.",
+    start_url: "/",
+    display: "standalone",
+    background_color: "#ffffff",
+    theme_color: "#2563eb",
+    orientation: "portrait",
+    scope: "/",
+    lang: "es-PE",
+    categories: ["travel", "tourism", "adventure", "culture"],
+    icons: [
       {
-        userAgent: "*",
-        allow: "/",
-        disallow: [
-          "/api/",
-          "/admin/",
-          "/private/",
-          "/_next/",
-          "/static/",
-          "*.json$",
-          "/booking/confirmation",
-          "/user/",
-          "/dashboard/",
-          "/auth/",
-          "/temp/",
-        ],
+        src: "/favicon.ico",
+        sizes: "16x16 32x32",
+        type: "image/x-icon",
       },
       {
-        userAgent: "Googlebot",
-        allow: "/",
-        disallow: ["/api/", "/admin/", "/private/", "/booking/confirmation", "/user/", "/dashboard/", "/auth/"],
-        crawlDelay: 1,
+        src: "/logo.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "maskable",
       },
       {
-        userAgent: "Bingbot",
-        allow: "/",
-        disallow: ["/api/", "/admin/", "/private/", "/booking/confirmation", "/user/", "/dashboard/", "/auth/"],
-        crawlDelay: 1,
+        src: "/logo.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
       },
       {
-        userAgent: "facebookexternalhit",
-        allow: "/",
-      },
-      {
-        userAgent: "Twitterbot",
-        allow: "/",
-      },
-      {
-        userAgent: "LinkedInBot",
-        allow: "/",
-      },
-      {
-        userAgent: "WhatsApp",
-        allow: "/",
+        src: "/logo.png",
+        sizes: "180x180",
+        type: "image/png",
+        purpose: "maskable",
       },
     ],
-    sitemap: `${baseUrl}/sitemap.xml`,
-    host: baseUrl,
+    shortcuts: [
+      {
+        name: "Ver Tours",
+        short_name: "Tours",
+        description: "Explora todos nuestros tours disponibles",
+        url: "/tours",
+        icons: [{ src: "/logofondo.png", sizes: "192x192" }],
+      },
+      {
+        name: "Destinos",
+        short_name: "Destinos",
+        description: "Descubre destinos increíbles en Perú",
+        url: "/destinations",
+        icons: [{ src: "/logofondo.png", sizes: "192x192" }],
+      },
+      {
+        name: "Contacto",
+        short_name: "Contacto",
+        description: "Contáctanos para planificar tu viaje",
+        url: "/contact",
+        icons: [{ src: "/logofondo.png", sizes: "192x192" }],
+      },
+    ],
+    related_applications: [],
+    prefer_related_applications: false,
   }
 }
