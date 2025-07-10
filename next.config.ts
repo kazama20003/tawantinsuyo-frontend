@@ -1,5 +1,7 @@
-/** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    appDir: true,
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -31,7 +33,6 @@ const nextConfig = {
   },
   async rewrites() {
     return [
-      // English routes
       {
         source: "/en",
         destination: "/",
