@@ -55,7 +55,6 @@ import {
   Crown,
   Shield,
   Mountain,
-  Waves,
   TreePine,
   Camera,
 } from "lucide-react"
@@ -201,13 +200,6 @@ export default function PaquetesPage() {
             Cultural
           </Badge>
         )
-      case "Relax":
-        return (
-          <Badge className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white">
-            <Waves className="w-3 h-3 mr-1" />
-            Relax
-          </Badge>
-        )
       case "Naturaleza":
         return (
           <Badge className="bg-gradient-to-r from-green-600 to-emerald-600 text-white">
@@ -264,7 +256,6 @@ export default function PaquetesPage() {
   const categoryStats = [
     { label: "Aventura", count: tours.filter((t) => t.category === "Aventura").length, color: "text-orange-600" },
     { label: "Cultural", count: tours.filter((t) => t.category === "Cultural").length, color: "text-blue-600" },
-    { label: "Relax", count: tours.filter((t) => t.category === "Relax").length, color: "text-cyan-600" },
     { label: "Naturaleza", count: tours.filter((t) => t.category === "Naturaleza").length, color: "text-green-600" },
   ]
 
@@ -449,7 +440,7 @@ export default function PaquetesPage() {
                           <Eye className="mr-2 h-4 w-4" />
                           Ver Detalles
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.push(`/paquetes/${tour._id}/edit`)}>
+                        <DropdownMenuItem onClick={() => router.push(`/dashboard/tours/${tour._id}/edit`)}>
                           <Edit className="mr-2 h-4 w-4" />
                           Editar
                         </DropdownMenuItem>
