@@ -29,6 +29,47 @@ const nextConfig = {
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     unoptimized: true,
   },
+  async rewrites() {
+    return [
+      // English routes - rewrite /en/* to /*
+      {
+        source: '/en',
+        destination: '/',
+      },
+      {
+        source: '/en/tours',
+        destination: '/tours',
+      },
+      {
+        source: '/en/tours/:slug',
+        destination: '/tours/:slug',
+      },
+      {
+        source: '/en/destinations',
+        destination: '/destinations',
+      },
+      {
+        source: '/en/itineraries',
+        destination: '/itineraries',
+      },
+      {
+        source: '/en/about-us',
+        destination: '/about-us',
+      },
+      {
+        source: '/en/contact',
+        destination: '/contact',
+      },
+      {
+        source: '/en/login',
+        destination: '/login',
+      },
+      {
+        source: '/en/register',
+        destination: '/register',
+      },
+    ]
+  },
   async headers() {
     return [
       {
@@ -69,14 +110,6 @@ const nextConfig = {
             value: 'public, max-age=86400, s-maxage=86400',
           },
         ],
-      },
-    ]
-  },
-  async rewrites() {
-    return [
-      {
-        source: '/robots.txt',
-        destination: '/api/robots',
       },
     ]
   },

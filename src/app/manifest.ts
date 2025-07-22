@@ -1,73 +1,87 @@
 import type { MetadataRoute } from "next"
 
 export default function manifest(): MetadataRoute.Manifest {
-  const baseUrl = process.env.NODE_ENV === "production" ? "https://tawantinsuyoperu.com" : "http://localhost:3000"
 
   return {
-    name: "Tawantinsuyo Peru - Tours y Experiencias Únicas",
+    name: "Tawantinsuyo Peru - Tours y Experiencias Auténticas",
     short_name: "Tawantinsuyo Peru",
     description:
-      "Descubre la magia del Perú con nuestros tours especializados. Experiencias únicas en Cusco, Machu Picchu y más destinos increíbles.",
+      "Descubre el Perú auténtico con Tawantinsuyo Peru. Tours únicos, experiencias culturales y aventuras inolvidables en Machu Picchu, Cusco y más destinos increíbles.",
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",
     theme_color: "#2563eb",
     orientation: "portrait-primary",
     scope: "/",
-    lang: "es-PE",
+    lang: "es",
     dir: "ltr",
-    categories: ["travel", "tourism", "adventure", "culture", "lifestyle"],
-    screenshots: [
-      {
-        src: `${baseUrl}/screenshot/image.png`,
-        sizes: "1280x720",
-        type: "image/png",
-        form_factor: "wide",
-        label: "Tawantinsuyo Peru - Desktop View",
-      },
-      {
-        src: `${baseUrl}/screenshot/image.png`,
-        sizes: "750x1334",
-        type: "image/png",
-        form_factor: "narrow",
-        label: "Tawantinsuyo Peru - Mobile View",
-      },
-    ],
+    categories: ["travel", "tourism", "culture", "adventure"],
+
     icons: [
       {
         src: "/favicon.ico",
-        sizes: "16x16 32x32 48x48",
+        sizes: "16x16 32x32",
         type: "image/x-icon",
         purpose: "any",
       },
       {
-        src: "/logo.png",
+        src: "/icon-192.png",
         sizes: "192x192",
         type: "image/png",
         purpose: "maskable",
       },
       {
-        src: "/logo.png",
+        src: "/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/icon-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
       },
       {
-        src: "/logo.png",
+        src: "/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/apple-touch-icon.png",
         sizes: "180x180",
         type: "image/png",
         purpose: "any",
       },
     ],
+
+    screenshots: [
+      {
+        src: "/screenshot-wide.png",
+        sizes: "1280x720",
+        type: "image/png",
+        form_factor: "wide",
+        label: "Tawantinsuyo Peru - Vista de escritorio",
+      },
+      {
+        src: "/screenshot-narrow.png",
+        sizes: "375x812",
+        type: "image/png",
+        form_factor: "narrow",
+        label: "Tawantinsuyo Peru - Vista móvil",
+      },
+    ],
+
     shortcuts: [
       {
-        name: "Ver Tours",
+        name: "Tours",
         short_name: "Tours",
-        description: "Explora todos nuestros tours disponibles",
+        description: "Explora nuestros tours disponibles",
         url: "/tours",
         icons: [
           {
-            src: "/logo.png",
+            src: "/icon-192.png",
             sizes: "192x192",
             type: "image/png",
           },
@@ -76,11 +90,11 @@ export default function manifest(): MetadataRoute.Manifest {
       {
         name: "Destinos",
         short_name: "Destinos",
-        description: "Descubre destinos increíbles en Perú",
+        description: "Descubre destinos increíbles",
         url: "/destinations",
         icons: [
           {
-            src: "/logo.png",
+            src: "/icon-192.png",
             sizes: "192x192",
             type: "image/png",
           },
@@ -89,18 +103,27 @@ export default function manifest(): MetadataRoute.Manifest {
       {
         name: "Contacto",
         short_name: "Contacto",
-        description: "Contáctanos para planificar tu viaje",
+        description: "Contáctanos para más información",
         url: "/contact",
         icons: [
           {
-            src: "/logo.png",
+            src: "/icon-192.png",
             sizes: "192x192",
             type: "image/png",
           },
         ],
       },
     ],
+
     related_applications: [],
     prefer_related_applications: false,
+
+    display_override: ["window-controls-overlay", "standalone", "minimal-ui"],
+
+    protocol_handlers: [],
+
+    launch_handler: {
+      client_mode: "navigate-existing",
+    },
   }
 }

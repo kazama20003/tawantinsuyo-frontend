@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Menu, Linkedin, X, Search, User, Phone, Globe, ChevronDown, MessageCircle, Facebook } from "lucide-react"
+import { Menu, Instagram, Linkedin, X, Search, User, Phone, Globe, ChevronDown, MessageCircle } from "lucide-react"
 import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { getTranslation, type Locale } from "@/lib/i18n"
@@ -102,18 +102,21 @@ export default function Header() {
     console.log(`🌐 Navegando a versión en ${targetLang.name}`)
 
     // Construir nueva URL con el idioma manteniendo la ruta actual
-    let newPath = pathname
+    let currentPath = pathname
+    let newPath = ""
 
     // Remover prefijo de idioma existente si existe
-    if (pathname.startsWith("/en")) {
-      newPath = pathname.replace(/^\/en/, "")
+    if (currentPath.startsWith("/en")) {
+      currentPath = currentPath.replace(/^\/en/, "") || "/"
     }
 
-    // Agregar nuevo prefijo de idioma si es necesario
+    // Construir nueva ruta según el idioma objetivo
     if (targetLang.locale === "en") {
-      newPath = `/en${newPath || "/"}`
+      // Para inglés, agregar prefijo /en
+      newPath = currentPath === "/" ? "/en" : `/en${currentPath}`
     } else {
-      newPath = newPath || "/"
+      // Para español, usar la ruta sin prefijo
+      newPath = currentPath === "/" ? "/" : currentPath
     }
 
     // Actualizar el idioma del documento
@@ -121,9 +124,8 @@ export default function Header() {
     setSelectedLanguage(newLanguage)
 
     // Navegar a la nueva URL
-    if (newPath !== pathname) {
-      router.push(newPath)
-    }
+    console.log(`🔄 Navegando de ${pathname} a ${newPath}`)
+    router.push(newPath)
 
     showNotification(`🌐 ${t("languageChanged")}`, "success")
     setIsLanguageOpen(false)
@@ -164,7 +166,7 @@ export default function Header() {
         >
           <div className="w-full flex justify-between items-center text-sm">
             <div className="flex items-center gap-4">
-              <Facebook className="w-4 h-4 hover:text-blue-200 transition-colors duration-300 cursor-pointer" />
+              <Instagram className="w-4 h-4 hover:text-blue-200 transition-colors duration-300 cursor-pointer" />
               <Linkedin className="w-4 h-4 hover:text-blue-200 transition-colors duration-300 cursor-pointer" />
             </div>
             <div className="flex items-center gap-6">
@@ -173,7 +175,7 @@ export default function Header() {
               </span>
               <span className="hover:text-blue-200 transition-colors duration-300 cursor-pointer flex items-center gap-1">
                 <Phone className="w-3 h-3" />
-                +51 913876154
+                +51 984 123 456
               </span>
             </div>
           </div>
@@ -374,36 +376,36 @@ export default function Header() {
               </div>
             </div>
 
-            {/* Mobile Navigation */}
-            <div className="md:hidden flex justify-between items-center w-full">
-              <div className="flex items-center gap-2">
+            {/* Mobile Navigation - FIXED HEIGHT AND PROPER LAYOUT */}
+            <div className="md:hidden flex justify-between items-center w-full min-h-[64px] py-3 gap-2">
+              <div className="flex items-center gap-1 flex-shrink-0 min-w-[80px]">
                 <button
                   onClick={toggleMobileMenu}
-                  className="p-2 hover:bg-blue-50 rounded-lg transition-colors duration-300"
+                  className="p-2 hover:bg-blue-50 rounded-lg transition-colors duration-300 flex-shrink-0"
                 >
-                  <Menu className="w-6 h-6" />
+                  <Menu className="w-5 h-5" />
                 </button>
 
                 {/* Mobile Language Selector */}
-                <div className="relative">
+                <div className="relative flex-shrink-0">
                   <button
                     onClick={() => setIsLanguageOpen(!isLanguageOpen)}
-                    className="flex items-center gap-1 px-2 py-1 border border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-all duration-300 bg-white/80 backdrop-blur-sm rounded-md"
+                    className="flex items-center gap-1 px-1.5 py-1.5 border border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-all duration-300 bg-white/80 backdrop-blur-sm rounded-md min-h-[32px]"
                   >
-                    <Globe className="w-3 h-3 md:w-4 md:h-4 text-gray-600" />
-                    <span className="text-xs md:text-sm font-medium text-gray-700">
+                    <Globe className="w-3 h-3 text-gray-600 flex-shrink-0" />
+                    <span className="text-[10px] font-medium text-gray-700 whitespace-nowrap">
                       {currentLocale === "en" ? "EN" : "ES"}
                     </span>
-                    <ChevronDown className="w-3 h-3 md:w-4 md:h-4 text-gray-400" />
+                    <ChevronDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
                   </button>
 
                   {isLanguageOpen && (
-                    <div className="absolute right-0 mt-2 w-32 md:w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                    <div className="absolute right-0 mt-2 w-32 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
                       {languages.map((lang) => (
                         <button
                           key={lang.code}
                           onClick={() => handleLanguageChange(lang.code)}
-                          className={`w-full text-left px-3 md:px-4 py-2 text-xs md:text-sm hover:bg-blue-50 transition-colors ${
+                          className={`w-full text-left px-3 py-2 text-xs hover:bg-blue-50 transition-colors ${
                             selectedLanguage === lang.code ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"
                           }`}
                         >
@@ -415,28 +417,30 @@ export default function Header() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-center flex-1">
-                <Link href={getLocalizedLink("/")} className="text-center">
+              <div className="flex items-center justify-center flex-1 px-4 min-w-0">
+                <Link href={getLocalizedLink("/")} className="text-center flex-shrink-0">
                   {isHeaderCompact ? (
-                    <div className="relative w-12 h-12 transition-all duration-700 ease-out">
+                    <div className="relative w-12 h-12 transition-all duration-700 ease-out flex-shrink-0 mx-2">
                       <Image
                         src="https://res.cloudinary.com/dlzq3rsot/image/upload/v1750535406/Imagen_de_WhatsApp_2025-06-02_a_las_12.51.49_e3f17722_uebdkn.jpg"
                         alt="Tawantinsuyo Peru Logo"
                         fill
-                        className="object-contain group-hover:scale-110 transition-transform duration-300"
+                        className="object-contain"
                       />
                     </div>
                   ) : (
-                    <div>
-                      <div className="text-lg font-black text-blue-600 leading-tight">TAWANTINSUYO</div>
-                      <div className="text-xs md:text-sm text-gray-600 font-medium -mt-1">PERU TOURS</div>
+                    <div className="transition-all duration-700 ease-out mx-2">
+                      <div className="text-base font-black text-blue-600 leading-tight whitespace-nowrap">
+                        TAWANTINSUYO
+                      </div>
+                      <div className="text-[10px] text-gray-600 font-medium -mt-0.5 whitespace-nowrap">PERU TOURS</div>
                     </div>
                   )}
                 </Link>
               </div>
 
-              <div className="flex items-center">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 text-sm rounded-full border-2 border-black transition-all duration-300">
+              <div className="flex items-center flex-shrink-0 min-w-[80px] justify-end">
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-2.5 py-2 text-[10px] rounded-full border-2 border-black transition-all duration-300 whitespace-nowrap min-h-[36px] flex items-center justify-center">
                   {t("bookNow")}
                 </Button>
               </div>
