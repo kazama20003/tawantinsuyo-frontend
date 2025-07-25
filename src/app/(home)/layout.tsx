@@ -10,7 +10,7 @@ export default function HomeLayout({
   return (
     <>
       <Header />
-      <main className="pt-30 md:pt-36 lg:pt-40">{children}</main>
+      <main>{children}</main>
       <Footer />
     </>
   )

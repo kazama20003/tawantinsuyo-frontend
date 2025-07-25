@@ -1,12 +1,28 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, Star, Clock, Users, ArrowRight, Loader2 } from "lucide-react"
+import {
+  ChevronLeft,
+  ChevronRight,
+  Star,
+  Clock,
+  ArrowRight,
+  Loader2,
+  Heart,
+  MapPin,
+  Users,
+  Calendar,
+  Camera,
+  Award,
+  Compass,
+} from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { useState, useRef, useEffect } from "react"
+import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
 import { api } from "@/lib/axiosInstance"
 import type { Tour } from "@/types/tour"
+import { motion, AnimatePresence } from "framer-motion"
 
 export default function PackagesSection() {
   const [tours, setTours] = useState<Tour[]>([])
@@ -14,16 +30,23 @@ export default function PackagesSection() {
   const [error, setError] = useState<string | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [itemsPerView, setItemsPerView] = useState(3)
-  const carouselRef = useRef<HTMLDivElement>(null)
+  const [favorites, setFavorites] = useState<Set<string>>(new Set())
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null)
+  const pathname = usePathname()
 
-  // Fetch top tours
+  // Get current locale from pathname
+  const currentLocale = pathname.startsWith("/en") ? "en" : "es"
+
+  // Fetch top tours with language parameter
   useEffect(() => {
     const fetchTopTours = async () => {
       try {
         setLoading(true)
-        const response = await api.get("/tours/top")
-        // Validar estructura de respuesta
+        // Add language parameter to the API call
+        const langParam = currentLocale === "en" ? "?lang=en" : ""
+        const response = await api.get(`/tours/top${langParam}`)
         let toursData = response.data
+
         if (toursData && typeof toursData === "object" && !Array.isArray(toursData)) {
           if (toursData.data && Array.isArray(toursData.data)) {
             toursData = toursData.data
@@ -31,7 +54,7 @@ export default function PackagesSection() {
             toursData = toursData.tours
           }
         }
-        // Asegurar que tenemos un array
+
         if (!Array.isArray(toursData)) {
           console.warn("API response is not an array:", toursData)
           setTours([])
@@ -41,21 +64,21 @@ export default function PackagesSection() {
         setError(null)
       } catch (err) {
         console.error("Error fetching top tours:", err)
-        setError("Error al cargar los tours populares")
-        setTours([]) // Asegurar que tours sea un array vacío en caso de error
+        setError(currentLocale === "en" ? "Error loading popular tours" : "Error al cargar los tours populares")
+        setTours([])
       } finally {
         setLoading(false)
       }
     }
 
     fetchTopTours()
-  }, [])
+  }, [currentLocale])
 
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 768) {
         setItemsPerView(1)
-      } else if (window.innerWidth < 1024) {
+      } else if (window.innerWidth < 1200) {
         setItemsPerView(2)
       } else {
         setItemsPerView(3)
@@ -81,56 +104,68 @@ export default function PackagesSection() {
     scrollToIndex(currentIndex + 1)
   }
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty.toLowerCase()) {
-      case "facil":
-        return "bg-green-100 text-green-700 border-green-300"
-      case "moderado":
-        return "bg-yellow-100 text-yellow-700 border-yellow-300"
-      case "difícil":
-        return "bg-red-100 text-red-700 border-red-300"
-      default:
-        return "bg-gray-100 text-gray-700 border-gray-300"
+  const toggleFavorite = (tourId: string) => {
+    const newFavorites = new Set(favorites)
+    if (newFavorites.has(tourId)) {
+      newFavorites.delete(tourId)
+    } else {
+      newFavorites.add(tourId)
     }
+    setFavorites(newFavorites)
   }
 
-  const getCategoryColor = (category: string) => {
-    switch (category.toLowerCase()) {
-      case "aventura":
-        return "bg-orange-100 text-orange-700 border-orange-300"
-      case "cultural":
-        return "bg-purple-100 text-purple-700 border-purple-300"
-      case "relajación":
-        return "bg-blue-100 text-blue-700 border-blue-300"
-      case "naturaleza":
-        return "bg-green-100 text-green-700 border-green-300"
-      case "trekking":
-        return "bg-red-100 text-red-700 border-red-300"
-      case "panoramico":
-        return "bg-cyan-100 text-cyan-700 border-cyan-300"
-      default:
-        return "bg-gray-100 text-gray-700 border-gray-300"
+  // Get localized text based on current language
+  const getLocalizedText = (key: string): string => {
+    const texts: Record<string, Record<string, string>> = {
+      es: {
+        title: "Más que una visita",
+        subtitle: "Hay muchas razones para elegir Perú, pero aquí están algunas de las más esenciales",
+        loading: "Cargando tours...",
+        tryAgain: "Intentar de nuevo",
+        noTours: "No hay tours disponibles en este momento.",
+        featured: "DESTACADO",
+        maxPeople: "Máx. 15 personas",
+        reviews: "reseñas",
+        allYear: "Todo el año",
+        photosIncluded: "Fotografías profesionales incluidas",
+        certifiedGuide: "Guía turístico certificado",
+        from: "Desde",
+        perPerson: "por persona",
+        explore: "Explorar",
+        details: "Detalles",
+        book: "Reservar",
+        viewAllTours: "Ver todos los tours",
+      },
+      en: {
+        title: "More than a visit",
+        subtitle: "There are many reasons to choose Peru, but here are some of the most essential",
+        loading: "Loading tours...",
+        tryAgain: "Try again",
+        noTours: "No tours available at the moment.",
+        featured: "FEATURED",
+        maxPeople: "Max. 15 people",
+        reviews: "reviews",
+        allYear: "All year",
+        photosIncluded: "Professional photos included",
+        certifiedGuide: "Certified tour guide",
+        from: "From",
+        perPerson: "per person",
+        explore: "Explore",
+        details: "Details",
+        book: "Book Now",
+        viewAllTours: "View all tours",
+      },
     }
-  }
-
-  // Función para truncar texto
-  const truncateText = (text: string, maxLength: number) => {
-    if (text.length <= maxLength) return text
-    return text.substring(0, maxLength) + "..."
+    return texts[currentLocale]?.[key] || texts.es[key] || key
   }
 
   if (loading) {
     return (
-      <section id="packages-section" className="py-16 md:py-24 bg-gray-50">
+      <section id="packages-section" className="py-16 md:py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 md:mb-20">
-            <h2 className="text-[3rem] md:text-[4rem] xl:text-[5rem] font-black text-black leading-none tracking-tight">
-              TOURS POPULARES
-            </h2>
-          </div>
           <div className="flex justify-center items-center py-20">
-            <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
-            <span className="ml-4 text-xl font-medium text-gray-600">Cargando tours...</span>
+            <Loader2 className="w-10 h-10 md:w-12 md:h-12 animate-spin text-blue-600" />
+            <span className="ml-4 text-xl md:text-2xl font-medium text-gray-600">{getLocalizedText("loading")}</span>
           </div>
         </div>
       </section>
@@ -139,17 +174,15 @@ export default function PackagesSection() {
 
   if (error) {
     return (
-      <section id="packages-section" className="py-16 md:py-24 bg-gray-50">
+      <section id="packages-section" className="py-16 md:py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 md:mb-20">
-            <h2 className="text-[3rem] md:text-[4rem] xl:text-[5rem] font-black text-black leading-none tracking-tight">
-              TOURS POPULARES
-            </h2>
-          </div>
           <div className="text-center py-20">
-            <p className="text-xl text-red-600 mb-4">{error}</p>
-            <Button onClick={() => window.location.reload()} className="bg-blue-600 text-white hover:bg-blue-700">
-              Intentar de nuevo
+            <p className="text-xl md:text-2xl text-red-600 mb-6">{error}</p>
+            <Button
+              onClick={() => window.location.reload()}
+              className="bg-blue-600 text-white hover:bg-blue-700 px-8 py-4 text-lg"
+            >
+              {getLocalizedText("tryAgain")}
             </Button>
           </div>
         </div>
@@ -159,15 +192,10 @@ export default function PackagesSection() {
 
   if (tours.length === 0) {
     return (
-      <section id="packages-section" className="py-16 md:py-24 bg-gray-50">
+      <section id="packages-section" className="py-16 md:py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 md:mb-20">
-            <h2 className="text-[3rem] md:text-[4rem] xl:text-[5rem] font-black text-black leading-none tracking-tight">
-              TOURS POPULARES
-            </h2>
-          </div>
           <div className="text-center py-20">
-            <p className="text-xl text-gray-600">No hay tours disponibles en este momento.</p>
+            <p className="text-xl md:text-2xl text-gray-600">{getLocalizedText("noTours")}</p>
           </div>
         </div>
       </section>
@@ -175,207 +203,314 @@ export default function PackagesSection() {
   }
 
   return (
-    <section id="packages-section" className="py-16 md:py-24 bg-gray-50">
+    <section id="packages-section" className="py-16 md:py-24 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="text-center mb-12 md:mb-20">
-          <h2 className="text-[3rem] md:text-[4rem] xl:text-[5rem] font-black text-black leading-none tracking-tight">
-            TOURS POPULARES
-          </h2>
-          <p className="text-lg md:text-xl text-gray-600 mt-4 max-w-3xl mx-auto">
-            Descubre los destinos más solicitados por nuestros viajeros
-          </p>
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between mb-16 md:mb-20 gap-8 md:gap-12">
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="flex-1"
+          >
+            <h2 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-light text-gray-900 leading-tight">
+              {getLocalizedText("title")}
+            </h2>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7, delay: 0.2 }}
+            className="lg:max-w-lg xl:max-w-xl"
+          >
+            <p className="text-lg md:text-xl text-gray-600 leading-relaxed">{getLocalizedText("subtitle")}</p>
+          </motion.div>
         </div>
 
-        {/* Carousel Container */}
-        <div className="relative">
-          {/* Navigation Buttons */}
-          <button
-            onClick={scrollLeft}
-            disabled={currentIndex === 0}
-            className={`absolute left-0 md:-left-6 top-1/2 transform -translate-y-1/2 z-10 w-12 h-12 md:w-16 md:h-16 rounded-full border-2 border-black flex items-center justify-center transition-all duration-300 shadow-lg ${
-              currentIndex === 0
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-white text-black hover:bg-blue-600 hover:text-white hover:border-blue-600"
-            }`}
-          >
-            <ChevronLeft className="w-6 h-6 md:w-8 md:h-8" />
-          </button>
-
-          <button
-            onClick={scrollRight}
-            disabled={currentIndex >= maxIndex}
-            className={`absolute right-0 md:-right-6 top-1/2 transform -translate-y-1/2 z-10 w-12 h-12 md:w-16 md:h-16 rounded-full border-2 border-black flex items-center justify-center transition-all duration-300 shadow-lg ${
-              currentIndex >= maxIndex
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-white text-black hover:bg-blue-600 hover:text-white hover:border-blue-600"
-            }`}
-          >
-            <ChevronRight className="w-6 h-6 md:w-8 md:h-8" />
-          </button>
-
-          {/* Cards Container */}
-          <div className="overflow-hidden mx-6 md:mx-10">
-            <div
-              ref={carouselRef}
-              className="flex transition-transform duration-500 ease-out"
+        {/* Cards Container */}
+        <div className="relative mb-12 md:mb-16">
+          <div className="overflow-hidden">
+            <motion.div
+              className="flex transition-transform duration-600 ease-out gap-6 md:gap-8"
               style={{
                 transform: `translateX(-${currentIndex * (100 / itemsPerView)}%)`,
               }}
             >
-              {tours.map((tour) => (
-                <div
+              {tours.map((tour, index) => (
+                <motion.div
                   key={tour._id}
-                  className={`flex-shrink-0 px-2 md:px-4 ${
-                    itemsPerView === 1 ? "w-full" : itemsPerView === 2 ? "w-1/2" : "w-1/3"
-                  }`}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: index * 0.15 }}
+                  className="flex-shrink-0"
+                  style={{
+                    width:
+                      itemsPerView === 1
+                        ? "calc(100% - 0px)"
+                        : itemsPerView === 2
+                          ? "calc(50% - 16px)"
+                          : "calc(33.333% - 22px)",
+                  }}
+                  onMouseEnter={() => setHoveredCard(tour._id)}
+                  onMouseLeave={() => setHoveredCard(null)}
                 >
-                  <div className="bg-white rounded-2xl border-2 border-black overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.01] group h-full flex flex-col">
-                    {/* Image Section */}
-                    <div className="relative h-48 md:h-56 overflow-hidden">
+                  <motion.div
+                    onClick={() => {
+                      window.location.href = `${currentLocale === "en" ? "/en" : ""}/tours/${tour.slug}`
+                    }}
+                    className="relative h-[500px] md:h-[580px] lg:h-[620px] rounded-3xl overflow-hidden group cursor-pointer bg-white shadow-lg hover:shadow-2xl transition-all duration-500"
+                    whileHover={{ y: -8 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {/* Background Image */}
+                    <div className="relative h-full overflow-hidden">
                       <Image
-                        src={tour.imageUrl || "/placeholder.svg?height=400&width=600&text=Tour+Image"}
+                        src={tour.imageUrl || "/placeholder.svg?height=620&width=400&text=Tour+Image"}
                         alt={tour.title}
                         fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        className="object-cover transition-transform duration-700 group-hover:scale-110"
                       />
-                      {/* Overlay gradiente para mejor legibilidad */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
+                      {/* Gradient overlay for better text readability */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10"></div>
+                    </div>
 
-                      {/* Featured Badge - Posición mejorada */}
-                      {tour.featured && (
-                        <div className="absolute top-3 right-3 bg-pink-500 text-white px-2 py-1 rounded-lg font-bold text-xs shadow-lg">
-                          DESTACADO
+                    {/* Top Section - Badges and Favorite */}
+                    <div className="absolute top-6 left-6 right-6 flex justify-between items-start z-20">
+                      <div className="flex flex-col gap-2">
+                        {tour.featured && (
+                          <motion.div
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ delay: 0.3 }}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg"
+                          >
+                            ⭐ {getLocalizedText("featured")}
+                          </motion.div>
+                        )}
+                        <div className="bg-white/95 backdrop-blur-sm text-gray-900 px-4 py-2 rounded-full text-lg font-bold shadow-lg">
+                          S/{tour.price}
                         </div>
-                      )}
+                      </div>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleFavorite(tour._id)
+                        }}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${
+                          favorites.has(tour._id)
+                            ? "bg-red-500 text-white"
+                            : "bg-white/90 backdrop-blur-sm text-gray-700 hover:bg-white"
+                        }`}
+                      >
+                        <Heart className={`w-6 h-6 ${favorites.has(tour._id) ? "fill-current" : ""}`} />
+                      </motion.button>
+                    </div>
 
-                      {/* Price Badge - Rediseñado */}
-                      <div className="absolute top-3 left-3">
-                        <div className="bg-white/95 backdrop-blur-sm rounded-lg px-3 py-1 border border-gray-200 shadow-lg">
-                          <div className="flex items-center gap-1">
-                            <span className="text-lg md:text-xl font-black text-blue-600">S/{tour.price}</span>
-                            {tour.originalPrice && tour.originalPrice > tour.price && (
-                              <span className="text-xs text-gray-500 line-through">S/{tour.originalPrice}</span>
-                            )}
+                    {/* Content Overlay - Yellow Section with Fixed Button Visibility */}
+                    <motion.div
+                      className="absolute bottom-0 left-0 right-0 bg-yellow-400 rounded-t-3xl overflow-hidden shadow-2xl"
+                      initial={{ height: "160px" }}
+                      animate={{
+                        height: hoveredCard === tour._id ? "450px" : "160px",
+                      }}
+                      transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+                    >
+                      <div className="p-6 md:p-8 h-full flex flex-col">
+                        {/* Always visible content */}
+                        <div className="flex-shrink-0">
+                          <h3 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-3 leading-tight line-clamp-2">
+                            {tour.title}
+                          </h3>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <MapPin className="w-5 h-5 text-gray-700" />
+                              <span className="text-base font-semibold text-gray-700 truncate">{tour.location}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Star className="w-5 h-5 text-gray-700 fill-current" />
+                              <span className="text-base font-bold text-gray-700">{tour.rating}</span>
+                            </div>
                           </div>
                         </div>
+
+                        {/* Expandable content with guaranteed button space */}
+                        <AnimatePresence>
+                          {hoveredCard === tour._id && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: 20 }}
+                              transition={{ duration: 0.4, delay: 0.1 }}
+                              className="flex-1 mt-6 flex flex-col"
+                            >
+                              {/* Scrollable content area */}
+                              <div className="flex-1 space-y-3">
+                                {/* Tour details grid */}
+                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                  <div className="flex items-center gap-2 text-gray-700">
+                                    <Clock className="w-4 h-4 flex-shrink-0" />
+                                    <span className="font-medium truncate">{tour.duration}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-gray-700">
+                                    <Users className="w-4 h-4 flex-shrink-0" />
+                                    <span className="font-medium truncate">{getLocalizedText("maxPeople")}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-gray-700">
+                                    <Award className="w-4 h-4 flex-shrink-0" />
+                                    <span className="font-medium truncate">
+                                      {tour.reviews} {getLocalizedText("reviews")}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-gray-700">
+                                    <Calendar className="w-4 h-4 flex-shrink-0" />
+                                    <span className="font-medium truncate">{getLocalizedText("allYear")}</span>
+                                  </div>
+                                </div>
+
+                                {/* Tour highlights */}
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                                    <Camera className="w-4 h-4 flex-shrink-0" />
+                                    <span className="truncate">{getLocalizedText("photosIncluded")}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                                    <Compass className="w-4 h-4 flex-shrink-0" />
+                                    <span className="truncate">{getLocalizedText("certifiedGuide")}</span>
+                                  </div>
+                                </div>
+
+                                {/* Price info */}
+                                <div className="pt-1 border-t border-gray-700/20">
+                                  <div className="text-sm text-gray-700">
+                                    <span className="font-bold text-lg">
+                                      {getLocalizedText("from")} S/{tour.price}
+                                    </span>
+                                    <span className="block text-xs opacity-80">{getLocalizedText("perPerson")}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Fixed buttons section - always visible */}
+                              <div className="flex-shrink-0 pt-4 mt-auto">
+                                <div className="flex gap-3">
+                                  <Link
+                                    href={`${currentLocale === "en" ? "/en" : ""}/tours/${tour.slug}`}
+                                    className="flex-1"
+                                  >
+                                    <motion.button
+                                      whileHover={{ scale: 1.02 }}
+                                      whileTap={{ scale: 0.98 }}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                      }}
+                                      className="w-full bg-blue-600 text-white px-4 py-3 rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors shadow-lg"
+                                    >
+                                      {getLocalizedText("details")}
+                                    </motion.button>
+                                  </Link>
+                                  <Link
+                                    href={`${currentLocale === "en" ? "/en" : ""}/tours/${tour.slug}?action=book`}
+                                    className="flex-1"
+                                  >
+                                    <motion.button
+                                      whileHover={{ scale: 1.02 }}
+                                      whileTap={{ scale: 0.98 }}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                      }}
+                                      className="w-full bg-gray-900 text-white px-4 py-3 rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 shadow-lg"
+                                    >
+                                      {getLocalizedText("book")}
+                                      <ArrowRight className="w-4 h-4" />
+                                    </motion.button>
+                                  </Link>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
-
-                      {/* Rating y Location - Posición mejorada */}
-                      <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end">
-                        <div className="bg-black/80 backdrop-blur-sm rounded-lg px-2 py-1 flex items-center gap-1">
-                          <Star className="w-3 h-3 text-yellow-400 fill-current" />
-                          <span className="text-white font-bold text-xs">{tour.rating}</span>
-                          <span className="text-white/80 text-xs">({tour.reviews})</span>
-                        </div>
-                        <div className="bg-blue-600/90 backdrop-blur-sm rounded-lg px-2 py-1">
-                          <span className="text-white font-medium text-xs">{truncateText(tour.location, 12)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Content Section - Flex grow para altura uniforme */}
-                    <div className="p-4 md:p-5 flex-grow flex flex-col">
-                      {/* Title - Altura fija */}
-                      <h3 className="text-lg md:text-xl font-black text-black mb-2 group-hover:text-blue-600 transition-colors duration-300 leading-tight h-12 md:h-14 overflow-hidden">
-                        {truncateText(tour.title, 50)}
-                      </h3>
-
-                      {/* Subtitle - Altura fija */}
-                      {tour.subtitle && (
-                        <p className="text-sm text-gray-600 leading-relaxed mb-3 h-10 overflow-hidden">
-                          {truncateText(tour.subtitle, 80)}
-                        </p>
-                      )}
-
-                      {/* Tour Info - Compacto */}
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        <div className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200">
-                          <Clock className="w-3 h-3 text-blue-600" />
-                          <span className="text-blue-600 font-medium text-xs">{tour.duration}</span>
-                        </div>
-                        <div className="flex items-center gap-1 bg-green-50 px-2 py-1 rounded-lg border border-green-200">
-                          <Users className="w-3 h-3 text-green-600" />
-                          <span className="text-green-600 font-medium text-xs">{tour.packageType}</span>
-                        </div>
-                      </div>
-
-                      {/* Category and Difficulty - Mejorado */}
-                      <div className="flex flex-wrap gap-1 mb-4">
-                        <div
-                          className={`px-2 py-1 rounded-lg border text-xs font-bold ${getCategoryColor(tour.category)}`}
-                        >
-                          {truncateText(tour.category, 10)}
-                        </div>
-                        <div
-                          className={`px-2 py-1 rounded-lg border text-xs font-bold ${getDifficultyColor(tour.difficulty)}`}
-                        >
-                          {tour.difficulty}
-                        </div>
-                      </div>
-
-                      {/* Highlights Preview - Compacto */}
-                      {tour.highlights && tour.highlights.length > 0 && (
-                        <div className="mb-4 flex-grow">
-                          <h4 className="font-bold text-xs text-gray-700 mb-2">Destacados:</h4>
-                          <ul className="text-xs text-gray-600 space-y-1">
-                            {tour.highlights.slice(0, 2).map((highlight, index) => (
-                              <li key={index} className="flex items-start gap-1">
-                                <span className="text-blue-600 mt-0.5 text-xs">•</span>
-                                <span className="line-clamp-1">{truncateText(highlight, 40)}</span>
-                              </li>
-                            ))}
-                            {tour.highlights.length > 2 && (
-                              <li className="text-blue-600 font-medium text-xs">
-                                +{tour.highlights.length - 2} más...
-                              </li>
-                            )}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* Action Button - Siempre al final */}
-                      <div className="mt-auto">
-                        <Link href={`/tours/${tour.slug}`}>
-                          <Button className="w-full bg-transparent text-black border-2 border-black hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all duration-300 group/btn font-bold py-2 md:py-3 text-sm rounded-lg">
-                            <span className="flex items-center justify-center gap-2">
-                              VER DETALLES
-                              <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-1 transition-transform duration-300" />
-                            </span>
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                    </motion.div>
+                  </motion.div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         </div>
 
-        {/* Pagination Dots */}
-        {tours.length > itemsPerView && (
-          <div className="flex justify-center mt-8 md:mt-12 gap-2">
+        {/* Navigation Controls */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+          {/* Pagination Dots */}
+          <div className="flex gap-3 order-2 sm:order-1">
             {Array.from({ length: maxIndex + 1 }).map((_, index) => (
-              <button
+              <motion.button
                 key={index}
+                whileHover={{ scale: 1.2 }}
+                whileTap={{ scale: 0.9 }}
                 onClick={() => scrollToIndex(index)}
-                className={`w-3 h-3 md:w-4 md:h-4 rounded-full border-2 border-black transition-all duration-300 ${
-                  index === currentIndex ? "bg-blue-600 border-blue-600" : "bg-white hover:bg-gray-200"
+                className={`w-3 h-3 md:w-4 md:h-4 rounded-full transition-all duration-300 ${
+                  index === currentIndex
+                    ? "bg-blue-600 scale-125"
+                    : index === 0
+                      ? "bg-blue-600"
+                      : "bg-gray-300 hover:bg-gray-400"
                 }`}
               />
             ))}
           </div>
-        )}
+
+          {/* Arrow Navigation */}
+          <div className="flex gap-4 order-1 sm:order-2">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={scrollLeft}
+              disabled={currentIndex === 0}
+              className={`w-14 h-14 md:w-16 md:h-16 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+                currentIndex === 0
+                  ? "border-gray-300 text-gray-300 cursor-not-allowed"
+                  : "border-gray-400 text-gray-600 hover:border-blue-600 hover:text-blue-600 hover:shadow-lg"
+              }`}
+            >
+              <ChevronLeft className="w-6 h-6 md:w-7 md:h-7" />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={scrollRight}
+              disabled={currentIndex >= maxIndex}
+              className={`w-14 h-14 md:w-16 md:h-16 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+                currentIndex >= maxIndex
+                  ? "border-gray-300 text-gray-300 cursor-not-allowed"
+                  : "border-gray-400 text-gray-600 hover:border-blue-600 hover:text-blue-600 hover:shadow-lg"
+              }`}
+            >
+              <ChevronRight className="w-6 h-6 md:w-7 md:h-7" />
+            </motion.button>
+          </div>
+        </div>
 
         {/* More Tours Button */}
-        <div className="text-center mt-12 md:mt-16">
-          <Link href="/tours">
-            <Button className="bg-black text-white hover:bg-blue-600 font-black px-8 md:px-12 py-4 md:py-5 text-lg md:text-xl rounded-full border-2 border-black transition-all duration-300 hover:scale-105 hover:shadow-xl">
-              VER TODOS LOS TOURS
-            </Button>
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.5 }}
+          className="text-center mt-16 md:mt-20"
+        >
+          <Link href={`${currentLocale === "en" ? "/en" : ""}/tours`}>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button className="bg-blue-600 text-white hover:bg-blue-700 font-bold px-10 md:px-12 py-4 md:py-5 text-lg md:text-xl rounded-full transition-all duration-300 hover:shadow-xl">
+                {getLocalizedText("viewAllTours")}
+              </Button>
+            </motion.div>
           </Link>
-        </div>
+        </motion.div>
       </div>
     </section>
   )

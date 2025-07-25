@@ -6,63 +6,43 @@ export interface Customer {
   nationality?: string
 }
 
-export interface TourComplete {
-  _id: string
-  title: string
-  subtitle?: string
-  price: number
-  originalPrice?: number
-  duration: string
-  region: string
-  imageUrl?: string
-  imageId?: string
-  rating?: number
-  reviews?: number
-  location?: string
-  category?: string
-  difficulty?: string
-  packageType?: string
-  highlights?: string[]
-  featured?: boolean
-  description?: string
-  includes?: string[]
-  notIncludes?: string[]
-  toBring?: string[]
-  conditions?: string[]
-  slug?: string
-  transportOptionIds?: Array<{
-    _id: string
-    type: string
-    vehicle: string
-    services: string[]
-    imageUrl?: string
-    imageId?: string
-  }>
-  itinerary?: Array<{
-    day: number
-    title: string
-    description: string
-    activities: string[]
-    meals: string[]
-    accommodation?: string
-    route?: Array<{
-      location: string
-      description: string
-      imageUrl?: string
-      _id: string
-    }>
-    _id: string
-  }>
-  createdAt: string
-  updatedAt: string
+// Interfaz para manejar objetos de localización
+export interface LocalizedField {
+  es?: string
+  en?: string
 }
 
-export interface Order {
+// Función helper para extraer texto de campos localizados
+export const getLocalizedText = (field: string | LocalizedField | undefined, defaultText = "N/A"): string => {
+  if (!field) return defaultText
+  if (typeof field === "string") return field
+  if (typeof field === "object" && field.es) return field.es
+  if (typeof field === "object" && field.en) return field.en
+  return defaultText
+}
+
+export interface TourInOrder {
   _id: string
-  tour: TourComplete
-  customer: Customer
+  title: string | LocalizedField
+  imageUrl?: string
+  price: number
+}
+
+export interface OrderItem {
+  _id: string
+  tour: TourInOrder
   startDate: string
   people: number
+  pricePerPerson: number
+  total: number
+  notes?: string
+}
+
+// Estructura que viene del backend
+export interface BackendOrder {
+  _id: string
+  items: OrderItem[]
+  customer: Customer
   totalPrice: number
   status: "created" | "confirmed" | "cancelled" | "completed"
   paymentMethod?: string
@@ -77,63 +57,43 @@ export interface Order {
   updatedAt: string
 }
 
-// DTOs para crear y actualizar órdenes individuales (legacy)
-export interface CreateOrderDto {
-  tour: string
-  customer: Customer
+// Estructura normalizada para el frontend (compatible con el código existente)
+export interface Order {
+  _id: string
+  tour?: {
+    _id: string
+    title: string
+    subtitle?: string
+    imageUrl?: string
+    price: number
+    duration: string
+    region: string
+  }
+  customer?: Customer
+  user?: {
+    _id: string
+    fullName: string
+  }
   startDate: string
   people: number
   totalPrice: number
+  status: "created" | "confirmed" | "cancelled" | "completed"
   paymentMethod?: string
   notes?: string
   discountCodeUsed?: string
-  user?: string
+  createdAt: string
+  updatedAt: string
+  // Campos adicionales para manejar múltiples items
+  items?: OrderItem[]
 }
 
-export interface UpdateOrderDto {
-  items?: OrderItemDto[]
-  customer?: CustomerInfoDto
-  totalPrice?: number
-  paymentMethod?: string
-  notes?: string
-  discountCodeUsed?: string
-  user?: string
-}
-// DTO para actualizar órdenes con múltiples items
-export interface UpdateMultiOrderDto {
-  items?: OrderItemDto[]
-  customer?: CustomerInfoDto
-  totalPrice?: number
-  paymentMethod?: string
-  notes?: string
-  discountCodeUsed?: string
-}
-// Interfaces para selección
-export interface TourSelectionOption {
-  _id: string
-  title: string
-  price: number
-  duration: string
-  region: string
-}
-
-export interface UserOption {
-  _id: string
-  fullName: string
-  email: string
-}
-
-// Parámetros de consulta
 export interface OrdersQueryParams {
   page?: number
   limit?: number
   search?: string
   status?: string
-  startDate?: string
-  endDate?: string
 }
 
-// Respuesta de la API
 export interface OrdersResponse {
   data: Order[]
   meta: {
@@ -145,32 +105,7 @@ export interface OrdersResponse {
   message?: string
 }
 
-// Respuesta del backend (estructura original)
-export interface OrderResponse {
-  _id: string
-  tour: string | TourComplete
-  customer: Customer
-  startDate: string
-  people: number
-  totalPrice: number
-  status: "pending" | "confirmed" | "cancelled"
-  paymentMethod?: string
-  notes?: string
-  discountCodeUsed?: string
-  user?: string | UserOption
-  createdAt: string
-  updatedAt: string
-}
-
-// ===== NUEVAS INTERFACES PARA CHECKOUT CON MÚLTIPLES ITEMS =====
-
-export interface CustomerInfoDto {
-  fullName: string
-  email: string
-  phone?: string
-  nationality?: string
-}
-
+// DTOs para crear órdenes (siguiendo la estructura del backend)
 export interface OrderItemDto {
   tour: string // MongoDB ObjectId
   startDate: string // ISO Date string
@@ -180,7 +115,13 @@ export interface OrderItemDto {
   notes?: string
 }
 
-// DTO para crear órdenes con múltiples items (checkout)
+export interface CustomerInfoDto {
+  fullName: string
+  email: string
+  phone?: string
+  nationality?: string
+}
+
 export interface CreateMultiOrderDto {
   items: OrderItemDto[]
   customer: CustomerInfoDto
@@ -190,22 +131,37 @@ export interface CreateMultiOrderDto {
   discountCodeUsed?: string
 }
 
-// Response types para órdenes con múltiples items
-export interface MultiOrderResponse {
-  _id: string
-  items: OrderItemDto[]
-  customer: CustomerInfoDto
+// DTO simplificado para compatibilidad con el código existente
+export interface CreateOrderDto {
+  tour: string
+  customer: Customer
+  startDate: string
+  people: number
   totalPrice: number
   paymentMethod?: string
   notes?: string
   discountCodeUsed?: string
-  status: "pending" | "confirmed" | "cancelled"
-  createdAt: string
-  updatedAt: string
 }
 
-export interface OrdersApiResponse {
-  success: boolean
-  data: MultiOrderResponse[]
-  message?: string
+export interface UpdateOrderDto {
+  items?: OrderItemDto[]
+  customer?: CustomerInfoDto
+  totalPrice?: number
+  paymentMethod?: string
+  notes?: string
+  discountCodeUsed?: string
+  user?: string
+}
+
+export interface TourSelectionOption {
+  _id: string
+  title: string
+  price: number
+  duration: string
+  region: string
+}
+
+export interface UserOption {
+  _id: string
+  fullName: string
 }

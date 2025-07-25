@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Plus, Search, Calendar, Percent, Eye, Edit, Trash2, ToggleLeft, ToggleRight } from "lucide-react"
+import { Search, Calendar, Percent, Eye, Edit, Trash2, ToggleLeft, ToggleRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,7 +19,7 @@ import {
 import { toast } from "sonner"
 import { offersApi } from "@/lib/offers-api"
 import type { Offer, OffersQueryParams } from "@/types/offer"
-import {OfferFormDialog} from "@/components/dashboard/offer/offer-form-dialog"
+import { OfferFormDialog } from "@/components/dashboard/offer/offer-form-dialog"
 
 export default function OffersPage() {
   const [offers, setOffers] = useState<Offer[]>([])
@@ -44,7 +44,8 @@ export default function OffersPage() {
       setOffers(response.data)
       setTotalPages(response.meta.totalPages)
       setTotalOffers(response.meta.total)
-    } catch {
+    } catch (error) {
+      console.error("Error fetching offers:", error)
       toast.error("No se pudieron cargar las ofertas")
     } finally {
       setLoading(false)
@@ -70,7 +71,8 @@ export default function OffersPage() {
       await offersApi.toggleOfferStatus(offerId, currentStatus)
       toast.success("Estado de la oferta actualizado")
       fetchOffers()
-    } catch {
+    } catch (error) {
+      console.error("Error toggling offer status:", error)
       toast.error("No se pudo actualizar el estado de la oferta")
     }
   }
@@ -82,7 +84,8 @@ export default function OffersPage() {
       await offersApi.deleteOffer(offerId)
       toast.success("Oferta eliminada correctamente")
       fetchOffers()
-    } catch {
+    } catch (error) {
+      console.error("Error deleting offer:", error)
       toast.error("No se pudo eliminar la oferta")
     }
   }
@@ -128,7 +131,16 @@ export default function OffersPage() {
   }).length
 
   if (loading) {
-    return <div>Cargando...</div>
+    return (
+      <SidebarInset>
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+            <p className="mt-2 text-muted-foreground">Cargando ofertas...</p>
+          </div>
+        </div>
+      </SidebarInset>
+    )
   }
 
   return (
@@ -289,7 +301,7 @@ export default function OffersPage() {
                   )}
 
                   <div className="flex gap-2 pt-2">
-                    <Button variant="outline" size="sm" className="flex-1">
+                    <Button variant="outline" size="sm" className="flex-1 bg-transparent">
                       <Eye className="h-4 w-4 mr-1" />
                       Ver
                     </Button>
@@ -352,10 +364,7 @@ export default function OffersPage() {
               <p className="text-muted-foreground text-center mb-4">
                 No se encontraron ofertas con los filtros aplicados.
               </p>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Crear Primera Oferta
-              </Button>
+              <OfferFormDialog onOfferCreated={fetchOffers} />
             </CardContent>
           </Card>
         )}

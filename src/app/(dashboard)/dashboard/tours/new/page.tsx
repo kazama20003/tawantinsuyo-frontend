@@ -1,9 +1,10 @@
 "use client"
 
-import React from "react"
-
-import { useState, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import { useForm, useFieldArray } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -13,321 +14,405 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Progress } from "@/components/ui/progress"
-import { ArrowLeft, Save, Loader2, AlertCircle } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { ImageUpload } from "@/components/ui/image-upload"
+import {
+  Plus,
+  Minus,
+  Save,
+  ArrowLeft,
+  Loader2,
+  Package,
+  MapPin,
+  Star,
+  Calendar,
+  CheckCircle,
+  XCircle,
+  Backpack,
+  FileText,
+  Car,
+  Crown,
+} from "lucide-react"
 import { toast } from "sonner"
 import { toursApi } from "@/lib/tours-api"
-import { uploadApi } from "@/lib/upload-api"
-import type { CreateTourDto, TourFormData } from "@/types/tour"
+import { transportApi } from "@/lib/transport-api"
+import type { CreateTourDto, TransportOption } from "@/types/tour"
 
-// Componentes del formulario
-import { BasicInfoForm } from "@/components/dashboard/tour/basic-info-form"
-import TourDetailsForm from "@/components/dashboard/tour/tour-details-form"
-import { TransportForm } from "@/components/dashboard/tour/transport-form"
-import { RouteForm } from "@/components/dashboard/tour/route-form"
-import { ItineraryForm } from "@/components/dashboard/tour/itinerary-form"
-import { IncludesForm } from "@/components/dashboard/tour/includes-form"
+// Schema de validación completo con actividades multilingües
+const tourSchema = z.object({
+  title: z.object({
+    es: z.string().min(1, "El título en español es requerido"),
+    en: z.string().optional(),
+  }),
+  subtitle: z.object({
+    es: z.string().min(1, "El subtítulo en español es requerido"),
+    en: z.string().optional(),
+  }),
+  imageUrl: z.string().min(1, "La imagen principal es requerida"),
+  imageId: z.string().optional(),
+  price: z.number().min(1, "El precio debe ser mayor a 0"),
+  originalPrice: z.number().optional(),
+  duration: z.object({
+    es: z.string().min(1, "La duración en español es requerida"),
+    en: z.string().optional(),
+  }),
+  rating: z.number().min(0).max(5, "El rating debe estar entre 0 y 5"),
+  reviews: z.number().min(0, "Las reseñas deben ser 0 o más"),
+  location: z.string().min(1, "La ubicación es requerida"),
+  region: z.string().min(1, "La región es requerida"),
+  category: z.enum([
+    "Aventura",
+    "Cultural",
+    "Relajación",
+    "Naturaleza",
+    "Trekking",
+    "Panoramico",
+    "Transporte Turistico",
+  ]),
+  difficulty: z.enum(["Facil", "Moderado", "Difícil"]),
+  packageType: z.enum(["Basico", "Premium"]),
+  highlights: z
+    .array(
+      z.object({
+        es: z.string().min(1, "El highlight en español es requerido"),
+        en: z.string().optional(),
+      }),
+    )
+    .min(1, "Debe tener al menos un highlight"),
+  featured: z.boolean().optional(),
+  slug: z.string().min(1, "El slug es requerido"),
+  // Transportes obligatorios
+  transportOptionIds: z.array(z.string()).min(1, "Debe seleccionar al menos un transporte para el paquete"),
+  itinerary: z
+    .array(
+      z.object({
+        day: z.number().min(1),
+        title: z.object({
+          es: z.string().min(1, "El título del día es requerido"),
+          en: z.string().optional(),
+        }),
+        description: z.object({
+          es: z.string().min(1, "La descripción del día es requerida"),
+          en: z.string().optional(),
+        }),
+        // ✅ Actividades ahora multilingües
+        activities: z
+          .array(
+            z.object({
+              es: z.string().min(1, "La actividad en español es requerida"),
+              en: z.string().optional(),
+            }),
+          )
+          .min(1, "Debe tener al menos una actividad"),
+        meals: z.array(z.string()).optional(),
+        accommodation: z.string().optional(),
+        imageId: z.string().optional(),
+        imageUrl: z.string().optional(),
+        route: z
+          .array(
+            z.object({
+              location: z.object({
+                es: z.string().min(1, "La ubicación es requerida"),
+                en: z.string().optional(),
+              }),
+              description: z
+                .object({
+                  es: z.string().optional(),
+                  en: z.string().optional(),
+                })
+                .optional(),
+              imageId: z.string().optional(),
+              imageUrl: z.string().optional(),
+            }),
+          )
+          .min(1, "Debe tener al menos un punto de ruta"),
+      }),
+    )
+    .min(1, "Debe tener al menos un día de itinerario"),
+  includes: z
+    .array(
+      z.object({
+        es: z.string().min(1, "El item incluido en español es requerido"),
+        en: z.string().optional(),
+      }),
+    )
+    .min(1, "Debe especificar qué incluye el tour"),
+  notIncludes: z
+    .array(
+      z.object({
+        es: z.string().min(1, "El item no incluido en español es requerido"),
+        en: z.string().optional(),
+      }),
+    )
+    .min(1, "Debe especificar qué no incluye el tour"),
+  toBring: z
+    .array(
+      z.object({
+        es: z.string().min(1, "El item a traer en español es requerido"),
+        en: z.string().optional(),
+      }),
+    )
+    .min(1, "Debe especificar qué traer"),
+  conditions: z
+    .array(
+      z.object({
+        es: z.string().min(1, "La condición en español es requerida"),
+        en: z.string().optional(),
+      }),
+    )
+    .min(1, "Debe especificar las condiciones del tour"),
+})
 
-// Función para generar slug
-const generateSlug = (title: string): string => {
-  return title
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Remover acentos
-    .replace(/[^a-z0-9\s-]/g, "") // Remover caracteres especiales
-    .trim()
-    .replace(/\s+/g, "-") // Reemplazar espacios con guiones
-    .replace(/-+/g, "-") // Remover guiones duplicados
-}
+type TourFormData = z.infer<typeof tourSchema>
 
 export default function NewTourPage() {
+  const [loading, setLoading] = useState(false)
+  const [loadingTransports, setLoadingTransports] = useState(true)
+  const [availableTransports, setAvailableTransports] = useState<TransportOption[]>([])
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState("basic")
-  const [submitting, setSubmitting] = useState(false)
-  const [tourCreated, setTourCreated] = useState(false)
-  const temporaryImagesRef = useRef<Set<string>>(new Set())
 
-  // Usar TourFormData internamente
-  const [formData, setFormData] = useState<TourFormData>({
-    title: "",
-    subtitle: "",
-    imageUrl: "",
-    imageId: "",
-    price: 0,
-    originalPrice: undefined,
-    duration: "",
-    rating: 0,
-    reviews: 0,
-    location: "",
-    region: "",
-    category: "Aventura", // Valor por defecto
-    difficulty: "Facil", // Sin tilde
-    packageType: "Basico", // Valor por defecto
-    highlights: [],
-    featured: false,
-    selectedTransports: [], // Para mostrar en el formulario
-    transportOptionIds: [], // Para enviar al backend
-    itinerary: [],
-    includes: [],
-    notIncludes: [],
-    toBring: [],
-    conditions: [],
-    slug: "", // Agregar slug
+  const form = useForm<TourFormData>({
+    resolver: zodResolver(tourSchema),
+    defaultValues: {
+      title: { es: "", en: "" },
+      subtitle: { es: "", en: "" },
+      imageUrl: "",
+      imageId: "",
+      price: 0,
+      originalPrice: 0,
+      duration: { es: "", en: "" },
+      rating: 5,
+      reviews: 0,
+      location: "",
+      region: "",
+      category: "Aventura",
+      difficulty: "Facil",
+      packageType: "Basico",
+      highlights: [{ es: "", en: "" }],
+      featured: false,
+      slug: "",
+      transportOptionIds: [],
+      itinerary: [
+        {
+          day: 1,
+          title: { es: "", en: "" },
+          description: { es: "", en: "" },
+          activities: [{ es: "", en: "" }], // ✅ Ahora multilingüe
+          meals: [],
+          accommodation: "",
+          imageId: "",
+          imageUrl: "",
+          route: [
+            {
+              location: { es: "", en: "" },
+              description: { es: "", en: "" },
+              imageId: "",
+              imageUrl: "",
+            },
+          ],
+        },
+      ],
+      includes: [{ es: "", en: "" }],
+      notIncludes: [{ es: "", en: "" }],
+      toBring: [{ es: "", en: "" }],
+      conditions: [{ es: "", en: "" }],
+    },
   })
 
-  // Función para agregar imagen temporal
-  const addTemporaryImage = (imageId: string) => {
-    if (imageId && imageId.trim() !== "") {
-      temporaryImagesRef.current.add(imageId)
-      console.log(`Imagen temporal agregada: ${imageId}`)
-    }
-  }
+  // Memoize functions to prevent unnecessary re-renders
+  const generateSlugCallback = useCallback((title: string) => {
+    return title
+      .toLowerCase()
+      .replace(/[áàäâ]/g, "a")
+      .replace(/[éèëê]/g, "e")
+      .replace(/[íìïî]/g, "i")
+      .replace(/[óòöô]/g, "o")
+      .replace(/[úùüû]/g, "u")
+      .replace(/[ñ]/g, "n")
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .trim()
+  }, [])
 
-  // Función para remover imagen temporal (cuando se convierte en permanente)
-  const removeTemporaryImage = (imageId: string) => {
-    if (imageId && imageId.trim() !== "") {
-      temporaryImagesRef.current.delete(imageId)
-      console.log(`Imagen removida de temporales: ${imageId}`)
-    }
-  }
-
-  // Función para limpiar solo imágenes temporales
-  const cleanupTemporaryImages = async () => {
-    const tempImages = Array.from(temporaryImagesRef.current)
-    if (tempImages.length === 0) return
-
-    console.log(`Limpiando ${tempImages.length} imágenes temporales...`)
-
-    for (const imageId of tempImages) {
+  // Cargar transportes disponibles
+  useEffect(() => {
+    const loadTransports = async () => {
       try {
-        const result = await uploadApi.deleteImage(imageId)
-        if (result.success) {
-          console.log(`Imagen temporal ${imageId} eliminada`)
-        } else {
-          console.warn(`No se pudo eliminar imagen temporal ${imageId}:`, result.message)
-        }
+        setLoadingTransports(true)
+        const response = await transportApi.getAll(1, 100) // Cargar todos los transportes
+        setAvailableTransports(response.data)
       } catch (error) {
-        console.warn(`Error al eliminar imagen temporal ${imageId}:`, error)
-      }
-    }
-
-    // Limpiar el set
-    temporaryImagesRef.current.clear()
-  }
-
-  const updateFormData = (section: string, data: Partial<TourFormData>) => {
-    // Rastrear nuevas imágenes subidas como temporales
-    if (data.imageId && data.imageId !== formData.imageId) {
-      addTemporaryImage(data.imageId)
-    }
-
-    // Rastrear imágenes en itinerario
-    if (data.itinerary) {
-      data.itinerary.forEach((day) => {
-        if (day.imageId) {
-          addTemporaryImage(day.imageId)
-        }
-        // Rastrear imágenes en rutas del día
-        day.route?.forEach((point) => {
-          if (point.imageId) {
-            addTemporaryImage(point.imageId)
-          }
+        console.error("Error loading transports:", error)
+        toast.error("Error al cargar transportes", {
+          description: "No se pudieron cargar las opciones de transporte.",
         })
-      })
-    }
-
-    // Generar slug automáticamente cuando cambie el título
-    if (data.title && data.title !== formData.title) {
-      data.slug = generateSlug(data.title)
-    }
-
-    setFormData((prev) => ({ ...prev, ...data }))
-  }
-
-  // Función para marcar imágenes como permanentes
-  const markImagesAsPermanent = (tourData: CreateTourDto) => {
-    // Imagen principal
-    if (tourData.imageId) {
-      removeTemporaryImage(tourData.imageId)
-    }
-
-    // Imágenes del itinerario
-    tourData.itinerary?.forEach((day) => {
-      if (day.imageId) {
-        removeTemporaryImage(day.imageId)
+      } finally {
+        setLoadingTransports(false)
       }
-      // Imágenes en rutas del día
-      day.route?.forEach((point) => {
-        if (point.imageId) {
-          removeTemporaryImage(point.imageId)
-        }
-      })
+    }
+
+    loadTransports()
+  }, [])
+
+  // Field arrays
+  const {
+    fields: highlightFields,
+    append: appendHighlight,
+    remove: removeHighlight,
+  } = useFieldArray({
+    control: form.control,
+    name: "highlights",
+  })
+
+  const {
+    fields: itineraryFields,
+    append: appendItinerary,
+    remove: removeItinerary,
+  } = useFieldArray({
+    control: form.control,
+    name: "itinerary",
+  })
+
+  const {
+    fields: includesFields,
+    append: appendIncludes,
+    remove: removeIncludes,
+  } = useFieldArray({
+    control: form.control,
+    name: "includes",
+  })
+
+  const {
+    fields: notIncludesFields,
+    append: appendNotIncludes,
+    remove: removeNotIncludes,
+  } = useFieldArray({
+    control: form.control,
+    name: "notIncludes",
+  })
+
+  const {
+    fields: toBringFields,
+    append: appendToBring,
+    remove: removeToBring,
+  } = useFieldArray({
+    control: form.control,
+    name: "toBring",
+  })
+
+  const {
+    fields: conditionsFields,
+    append: appendConditions,
+    remove: removeConditions,
+  } = useFieldArray({
+    control: form.control,
+    name: "conditions",
+  })
+
+
+  // Watch title changes to auto-generate slug
+  const titleEs = form.watch("title.es")
+  useEffect(() => {
+    if (titleEs) {
+      const newSlug = generateSlugCallback(titleEs)
+      form.setValue("slug", newSlug)
+    }
+  }, [titleEs, generateSlugCallback, form])
+
+  // Helper functions for dynamic fields
+  const addItineraryDay = () => {
+    const newDay = itineraryFields.length + 1
+    appendItinerary({
+      day: newDay,
+      title: { es: "", en: "" },
+      description: { es: "", en: "" },
+      activities: [{ es: "", en: "" }], // ✅ Ahora multilingüe
+      meals: [],
+      accommodation: "",
+      imageId: "",
+      imageUrl: "",
+      route: [
+        {
+          location: { es: "", en: "" },
+          description: { es: "", en: "" },
+          imageId: "",
+          imageUrl: "",
+        },
+      ],
     })
   }
 
-  const validateFormData = (): string[] => {
-    const errors: string[] = []
-
-    // Validaciones básicas
-    if (!formData.title.trim()) errors.push("El título es requerido")
-    if (!formData.subtitle.trim()) errors.push("El subtítulo es requerido")
-    if (!formData.location.trim()) errors.push("La ubicación es requerida")
-    if (!formData.region.trim()) errors.push("La región es requerida")
-    if (!formData.duration.trim()) errors.push("La duración es requerida")
-    if (formData.price <= 0) errors.push("El precio debe ser mayor a 0")
-
-    return errors
+  // ✅ Funciones actualizadas para actividades multilingües
+  const addActivityToDay = (dayIndex: number) => {
+    const currentActivities = form.getValues(`itinerary.${dayIndex}.activities`)
+    form.setValue(`itinerary.${dayIndex}.activities`, [...currentActivities, { es: "", en: "" }])
   }
 
-  const handleSubmit = async () => {
+  const removeActivityFromDay = (dayIndex: number, activityIndex: number) => {
+    const currentActivities = form.getValues(`itinerary.${dayIndex}.activities`)
+    if (currentActivities.length > 1) {
+      const newActivities = currentActivities.filter((_, index) => index !== activityIndex)
+      form.setValue(`itinerary.${dayIndex}.activities`, newActivities)
+    }
+  }
+
+  const addRouteToDay = (dayIndex: number) => {
+    const currentRoute = form.getValues(`itinerary.${dayIndex}.route`)
+    form.setValue(`itinerary.${dayIndex}.route`, [
+      ...currentRoute,
+      {
+        location: { es: "", en: "" },
+        description: { es: "", en: "" },
+        imageId: "",
+        imageUrl: "",
+      },
+    ])
+  }
+
+  const removeRouteFromDay = (dayIndex: number, routeIndex: number) => {
+    const currentRoute = form.getValues(`itinerary.${dayIndex}.route`)
+    if (currentRoute.length > 1) {
+      const newRoute = currentRoute.filter((_, index) => index !== routeIndex)
+      form.setValue(`itinerary.${dayIndex}.route`, newRoute)
+    }
+  }
+
+  // Filtrar transportes por tipo de paquete
+  const packageType = form.watch("packageType")
+  const filteredTransports = availableTransports.filter((transport) => transport.type === packageType)
+
+  const onSubmit = async (data: TourFormData) => {
     try {
-      setSubmitting(true)
+      setLoading(true)
 
-      // Validar datos
-      const validationErrors = validateFormData()
-      if (validationErrors.length > 0) {
-        toast.error("Errores de validación", {
-          description: validationErrors.join(", "),
-        })
-        setActiveTab("basic")
-        return
-      }
-
-      // Crear el DTO correcto para el backend (con slug)
       const tourData: CreateTourDto = {
-        title: formData.title,
-        subtitle: formData.subtitle,
-        imageUrl: formData.imageUrl,
-        imageId: formData.imageId || undefined,
-        price: formData.price,
-        originalPrice: formData.originalPrice && formData.originalPrice > 0 ? formData.originalPrice : undefined,
-        duration: formData.duration,
-        rating: formData.rating,
-        reviews: formData.reviews,
-        location: formData.location,
-        region: formData.region,
-        category: formData.category,
-        difficulty: formData.difficulty,
-        packageType: formData.packageType,
-        highlights: formData.highlights,
-        featured: formData.featured,
-        transportOptionIds: formData.transportOptionIds?.length ? formData.transportOptionIds : undefined,
-        itinerary: formData.itinerary?.length ? formData.itinerary : undefined,
-        includes: formData.includes?.length ? formData.includes : undefined,
-        notIncludes: formData.notIncludes?.length ? formData.notIncludes : undefined,
-        toBring: formData.toBring?.length ? formData.toBring : undefined,
-        conditions: formData.conditions?.length ? formData.conditions : undefined,
-        slug: formData.slug || generateSlug(formData.title), // Incluir slug
+        ...data,
       }
-
-      console.log("Sending tour data:", tourData)
 
       await toursApi.create(tourData)
 
-      // Marcar el tour como creado exitosamente
-      setTourCreated(true)
-
-      // Marcar todas las imágenes como permanentes (no temporales)
-      markImagesAsPermanent(tourData)
-
-      toast.success("Paquete creado", {
-        description: "El paquete turístico ha sido creado exitosamente.",
+      toast.success("Tour creado", {
+        description: "El tour se ha creado exitosamente.",
       })
 
       router.push("/dashboard/tours")
     } catch (error) {
       console.error("Error creating tour:", error)
-
-      // Mostrar error más específico
-      if (error instanceof Error) {
-        toast.error("Error al crear paquete", {
-          description: error.message || "No se pudo crear el paquete turístico.",
-        })
-      } else {
-        toast.error("Error al crear paquete", {
-          description: "No se pudo crear el paquete turístico. Por favor, intente más tarde.",
-        })
-      }
+      toast.error("Error al crear tour", {
+        description: error instanceof Error ? error.message : "No se pudo crear el tour.",
+      })
     } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const handleCancel = async () => {
-    // Mostrar confirmación antes de salir
-    const hasData = Object.values(formData).some(
-      (value) =>
-        (typeof value === "string" && value.trim() !== "") ||
-        (Array.isArray(value) && value.length > 0) ||
-        (typeof value === "number" && value > 0),
-    )
-
-    if (hasData) {
-      if (window.confirm("¿Estás seguro de cancelar? Se perderán todos los datos ingresados.")) {
-        // Limpiar imágenes temporales antes de salir
-        await cleanupTemporaryImages()
-        router.back()
-      }
-    } else {
-      router.back()
-    }
-  }
-
-  // Usar useEffect para manejar la limpieza al desmontar el componente
-  React.useEffect(() => {
-    const handleUnload = () => {
-      if (!tourCreated) {
-        // Solo limpiar si el tour no fue creado exitosamente
-        cleanupTemporaryImages()
-      }
-    }
-
-    window.addEventListener("beforeunload", handleUnload)
-
-    return () => {
-      window.removeEventListener("beforeunload", handleUnload)
-      // Solo limpiar al desmontar si el tour no fue creado
-      if (!tourCreated) {
-        cleanupTemporaryImages()
-      }
-    }
-  }, [tourCreated])
-
-  const tabs = [
-    { id: "basic", label: "Información Básica", required: true },
-    { id: "details", label: "Detalles del Tour", required: true },
-    { id: "transport", label: "Transporte", required: false },
-    { id: "route", label: "Información de Rutas", required: false },
-    { id: "itinerary", label: "Itinerario", required: false },
-    { id: "includes", label: "Incluye/No Incluye", required: false },
-  ]
-
-  const currentTabIndex = tabs.findIndex((tab) => tab.id === activeTab)
-  const progress = ((currentTabIndex + 1) / tabs.length) * 100
-
-  // Calcular completitud de cada sección
-  const getTabCompleteness = (tabId: string): number => {
-    switch (tabId) {
-      case "basic":
-        const basicFields = [formData.title, formData.subtitle, formData.location, formData.region, formData.category]
-        return (basicFields.filter(Boolean).length / basicFields.length) * 100
-      case "details":
-        const detailFields = [formData.duration, formData.price > 0, formData.packageType, formData.difficulty]
-        return (detailFields.filter(Boolean).length / detailFields.length) * 100
-      case "transport":
-        return formData.selectedTransports && formData.selectedTransports.length > 0 ? 100 : 0
-      case "route":
-        return 100 // Siempre completo ya que es informativo
-      case "itinerary":
-        return formData.itinerary && formData.itinerary.length > 0 ? 100 : 0
-      case "includes":
-        return formData.includes && formData.includes.length > 0 ? 100 : 0
-      default:
-        return 0
+      setLoading(false)
     }
   }
 
@@ -344,7 +429,7 @@ export default function NewTourPage() {
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbLink href="/paquetes">Paquetes Turísticos</BreadcrumbLink>
+                <BreadcrumbLink href="/dashboard/tours">Paquetes Turísticos</BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
@@ -356,169 +441,1035 @@ export default function NewTourPage() {
       </header>
 
       <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={handleCancel}>
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <h1 className="text-2xl font-bold">Crear Nuevo Paquete Turístico</h1>
-            </div>
-            <p className="text-muted-foreground">Completa la información para crear un nuevo paquete turístico</p>
-            {formData.slug && (
-              <p className="text-xs text-muted-foreground">
-                URL: <code className="bg-muted px-1 rounded">/tours/{formData.slug}</code>
-              </p>
-            )}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Crear Nuevo Tour</h1>
+            <p className="text-muted-foreground">
+              Completa toda la información para crear un paquete turístico completo
+            </p>
           </div>
-
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleCancel} disabled={submitting}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSubmit} disabled={submitting}>
-              {submitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creando...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Crear Paquete
-                </>
-              )}
-            </Button>
-          </div>
+          <Button variant="outline" onClick={() => router.back()}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Volver
+          </Button>
         </div>
 
-        {/* Progress */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Progreso del formulario</span>
-                <span>{Math.round(progress)}%</span>
-              </div>
-              <Progress value={progress} className="h-2" />
-            </div>
-          </CardContent>
-        </Card>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Información Básica */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Información Básica
+                </CardTitle>
+                <CardDescription>Información principal del tour</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="title.es"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Título (Español) *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ej: Machu Picchu 2 días" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="title.en"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Título (Inglés)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ex: Machu Picchu 2 days" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-        {/* Formulario */}
-        <Card className="flex-1">
-          <CardContent className="p-0">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-              {/* Navegación de pestañas - Responsive */}
-              <div className="border-b">
-                {/* Desktop: Pestañas horizontales */}
-                <div className="hidden md:block">
-                  <TabsList className="grid w-full grid-cols-6 h-auto p-1">
-                    {tabs.map((tab) => {
-                      const completeness = getTabCompleteness(tab.id)
-                      return (
-                        <TabsTrigger
-                          key={tab.id}
-                          value={tab.id}
-                          className="flex flex-col items-center gap-1 py-3 px-2 text-xs leading-tight relative"
-                        >
-                          <span className="font-medium">{tab.label}</span>
-                          {tab.required && <span className="text-red-500 text-xs">*</span>}
-                          {completeness > 0 && (
-                            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-green-500 rounded-full opacity-60" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="subtitle.es"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Subtítulo (Español) *</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Descripción breve del tour..." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="subtitle.en"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Subtítulo (Inglés)</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Brief tour description..." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Slug automático (solo lectura) */}
+                <FormField
+                  control={form.control}
+                  name="slug"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Slug (URL) - Generado automáticamente</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          readOnly
+                          className="bg-muted cursor-not-allowed"
+                          placeholder="Se genera automáticamente del título..."
+                        />
+                      </FormControl>
+                      <p className="text-sm text-muted-foreground">
+                        El slug se genera automáticamente basado en el título en español
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div>
+                  <Label>Imagen Principal *</Label>
+                  <FormField
+                    control={form.control}
+                    name="imageUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <ImageUpload
+                            value={field.value}
+                            imageId={form.getValues("imageId")}
+                            onChange={(url, imageId) => {
+                              field.onChange(url)
+                              form.setValue("imageId", imageId)
+                            }}
+                            onRemove={() => {
+                              field.onChange("")
+                              form.setValue("imageId", "")
+                            }}
+                            disabled={loading}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Detalles del Tour */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Detalles del Tour
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="location"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ubicación *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Cusco" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="region"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Región *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Cusco" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Categoría *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona categoría" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Aventura">Aventura</SelectItem>
+                            <SelectItem value="Cultural">Cultural</SelectItem>
+                            <SelectItem value="Relajación">Relajación</SelectItem>
+                            <SelectItem value="Naturaleza">Naturaleza</SelectItem>
+                            <SelectItem value="Trekking">Trekking</SelectItem>
+                            <SelectItem value="Panoramico">Panorámico</SelectItem>
+                            <SelectItem value="Transporte Turistico">Transporte Turístico</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="difficulty"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Dificultad *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona dificultad" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Facil">Fácil</SelectItem>
+                            <SelectItem value="Moderado">Moderado</SelectItem>
+                            <SelectItem value="Difícil">Difícil</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="packageType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipo de Paquete *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona tipo" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Basico">Básico</SelectItem>
+                            <SelectItem value="Premium">Premium</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="duration.es"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Duración (Español) *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="2 días y 1 noche" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="duration.en"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Duración (Inglés)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="2 days and 1 night" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="price"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Precio *</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="300"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="originalPrice"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Precio Original</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="350"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="rating"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Rating *</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="5"
+                            step="0.1"
+                            placeholder="5"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="reviews"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Reseñas *</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            placeholder="100"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="featured"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Tour Destacado</FormLabel>
+                        <div className="text-sm text-muted-foreground">
+                          Marcar como tour destacado en la página principal
+                        </div>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Selección de Transportes */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Car className="h-5 w-5" />
+                  Opciones de Transporte *
+                </CardTitle>
+                <CardDescription>
+                  Selecciona los transportes disponibles para este paquete{" "}
+                  {packageType && (
+                    <span className="font-medium">({packageType === "Premium" ? "Premium" : "Básico"})</span>
+                  )}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {loadingTransports ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                    <span>Cargando transportes...</span>
+                  </div>
+                ) : filteredTransports.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Car className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No hay transportes disponibles para el tipo de paquete seleccionado.</p>
+                    <p className="text-sm">
+                      Selecciona un tipo de paquete o{" "}
+                      <Button variant="link" className="p-0 h-auto" onClick={() => router.push("/dashboard/transport")}>
+                        crea nuevos transportes
+                      </Button>
+                    </p>
+                  </div>
+                ) : (
+                  <FormField
+                    control={form.control}
+                    name="transportOptionIds"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {filteredTransports.map((transport) => {
+                            const isSelected = field.value?.includes(transport._id) || false
+
+                            return (
+                              <Card
+                                key={transport._id}
+                                className={`w-full transition-all hover:shadow-md ${
+                                  isSelected ? "ring-2 ring-primary bg-primary/5" : ""
+                                }`}
+                              >
+                                <CardContent className="p-4">
+                                  <div className="flex items-start space-x-3">
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={isSelected}
+                                        onCheckedChange={(checked) => {
+                                          const currentValue = field.value || []
+                                          const newValue = checked
+                                            ? [...currentValue, transport._id]
+                                            : currentValue.filter((id) => id !== transport._id)
+                                          field.onChange(newValue)
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <div className="flex-1 space-y-2">
+                                      <div className="flex items-center gap-2">
+                                        <h4 className="font-medium">{transport.vehicle}</h4>
+                                        {transport.type === "Premium" && <Crown className="h-4 w-4 text-yellow-500" />}
+                                      </div>
+                                      <div className="flex flex-wrap gap-1">
+                                        {transport.services.map((service, index) => (
+                                          <span
+                                            key={index}
+                                            className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-secondary text-secondary-foreground"
+                                          >
+                                            {service}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            )
+                          })}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Highlights */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Star className="h-5 w-5" />
+                  Highlights *
+                </CardTitle>
+                <CardDescription>Puntos destacados del tour (mínimo 1)</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {highlightFields.map((field, index) => (
+                  <div key={field.id} className="flex gap-4 items-end">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                      <FormField
+                        control={form.control}
+                        name={`highlights.${index}.es`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Highlight {index + 1} (Español) *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ej: Machu Picchu" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`highlights.${index}.en`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Highlight {index + 1} (Inglés)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ex: Machu Picchu" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    {highlightFields.length > 1 && (
+                      <Button type="button" variant="outline" size="icon" onClick={() => removeHighlight(index)}>
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => appendHighlight({ es: "", en: "" })}
+                  className="w-full"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Agregar Highlight
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Itinerario */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Itinerario *
+                </CardTitle>
+                <CardDescription>Programa detallado día por día (mínimo 1 día)</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {itineraryFields.map((dayField, dayIndex) => (
+                  <Card key={dayField.id} className="border-l-4 border-l-blue-500">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">Día {dayIndex + 1}</CardTitle>
+                        {itineraryFields.length > 1 && (
+                          <Button type="button" variant="outline" size="sm" onClick={() => removeItinerary(dayIndex)}>
+                            <Minus className="h-4 w-4" />
+                            Eliminar Día
+                          </Button>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Título y descripción del día */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name={`itinerary.${dayIndex}.title.es`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Título del día (Español) *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Ej: Llegada a Cusco" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
                           )}
-                        </TabsTrigger>
-                      )
-                    })}
-                  </TabsList>
-                </div>
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`itinerary.${dayIndex}.title.en`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Título del día (Inglés)</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Ex: Arrival in Cusco" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
 
-                {/* Mobile: Selector dropdown */}
-                <div className="md:hidden p-4">
-                  <select
-                    value={activeTab}
-                    onChange={(e) => setActiveTab(e.target.value)}
-                    className="w-full p-2 border rounded-md bg-background"
-                  >
-                    {tabs.map((tab) => {
-                      const completeness = getTabCompleteness(tab.id)
-                      return (
-                        <option key={tab.id} value={tab.id}>
-                          {tab.label} {tab.required ? "*" : ""} {completeness > 0 ? "✓" : ""}
-                        </option>
-                      )
-                    })}
-                  </select>
-                </div>
-              </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name={`itinerary.${dayIndex}.description.es`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Descripción (Español) *</FormLabel>
+                              <FormControl>
+                                <Textarea placeholder="Descripción detallada del día..." {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`itinerary.${dayIndex}.description.en`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Descripción (Inglés)</FormLabel>
+                              <FormControl>
+                                <Textarea placeholder="Detailed day description..." {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
 
-              {/* Contenido de las pestañas */}
-              <div className="p-6">
-                <TabsContent value="basic" className="mt-0">
-                  <BasicInfoForm
-                    data={formData}
-                    onChange={(data: Partial<TourFormData>) => updateFormData("basic", data)}
-                  />
-                </TabsContent>
+                      {/* ✅ Actividades multilingües */}
+                      <div>
+                        <Label className="text-sm font-medium">Actividades *</Label>
+                        <div className="space-y-4 mt-2">
+                          {form.watch(`itinerary.${dayIndex}.activities`).map((_, activityIndex) => (
+                            <Card key={activityIndex} className="p-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="font-medium">Actividad {activityIndex + 1}</h4>
+                                {form.watch(`itinerary.${dayIndex}.activities`).length > 1 && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => removeActivityFromDay(dayIndex, activityIndex)}
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name={`itinerary.${dayIndex}.activities.${activityIndex}.es`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Actividad (Español) *</FormLabel>
+                                      <FormControl>
+                                        <Input placeholder="Ej: Visita a Sacsayhuamán" {...field} />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name={`itinerary.${dayIndex}.activities.${activityIndex}.en`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Actividad (Inglés)</FormLabel>
+                                      <FormControl>
+                                        <Input placeholder="Ex: Visit to Sacsayhuamán" {...field} />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            </Card>
+                          ))}
+                          <Button type="button" variant="outline" size="sm" onClick={() => addActivityToDay(dayIndex)}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Agregar Actividad
+                          </Button>
+                        </div>
+                      </div>
 
-                <TabsContent value="details" className="mt-0">
-                  <TourDetailsForm
-                    data={formData}
-                    onChange={(data: Partial<TourFormData>) => updateFormData("details", data)}
-                  />
-                </TabsContent>
+                      {/* Rutas */}
+                      <div>
+                        <Label className="text-sm font-medium">Puntos de Ruta *</Label>
+                        <div className="space-y-4 mt-2">
+                          {form.watch(`itinerary.${dayIndex}.route`).map((_, routeIndex) => (
+                            <Card key={routeIndex} className="p-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="font-medium">Punto {routeIndex + 1}</h4>
+                                {form.watch(`itinerary.${dayIndex}.route`).length > 1 && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => removeRouteFromDay(dayIndex, routeIndex)}
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name={`itinerary.${dayIndex}.route.${routeIndex}.location.es`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Ubicación (Español) *</FormLabel>
+                                      <FormControl>
+                                        <Input placeholder="Ej: Plaza de Armas" {...field} />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name={`itinerary.${dayIndex}.route.${routeIndex}.location.en`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Ubicación (Inglés)</FormLabel>
+                                      <FormControl>
+                                        <Input placeholder="Ex: Main Square" {...field} />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                <FormField
+                                  control={form.control}
+                                  name={`itinerary.${dayIndex}.route.${routeIndex}.description.es`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Descripción (Español)</FormLabel>
+                                      <FormControl>
+                                        <Textarea placeholder="Descripción del punto..." {...field} />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name={`itinerary.${dayIndex}.route.${routeIndex}.description.en`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Descripción (Inglés)</FormLabel>
+                                      <FormControl>
+                                        <Textarea placeholder="Point description..." {...field} />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            </Card>
+                          ))}
+                          <Button type="button" variant="outline" size="sm" onClick={() => addRouteToDay(dayIndex)}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Agregar Punto de Ruta
+                          </Button>
+                        </div>
+                      </div>
 
-                <TabsContent value="transport" className="mt-0">
-                  <TransportForm
-                    data={formData}
-                    onChange={(data: Partial<TourFormData>) => updateFormData("transport", data)}
-                  />
-                </TabsContent>
+                      {/* Alojamiento */}
+                      <FormField
+                        control={form.control}
+                        name={`itinerary.${dayIndex}.accommodation`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Alojamiento</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ej: Hotel San Agustín Plaza" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+                ))}
+                <Button type="button" variant="outline" onClick={addItineraryDay} className="w-full bg-transparent">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Agregar Día
+                </Button>
+              </CardContent>
+            </Card>
 
-                <TabsContent value="route" className="mt-0">
-                  <RouteForm
-                    _data={formData}
-                    _onChange={(data: Partial<TourFormData>) => updateFormData("route", data)}
-                  />
-                </TabsContent>
+            {/* Incluye */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5" />
+                  Qué Incluye *
+                </CardTitle>
+                <CardDescription>Servicios y elementos incluidos en el tour (mínimo 1)</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {includesFields.map((field, index) => (
+                  <div key={field.id} className="flex gap-4 items-end">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                      <FormField
+                        control={form.control}
+                        name={`includes.${index}.es`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Incluye {index + 1} (Español) *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ej: Transporte turístico" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`includes.${index}.en`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Incluye {index + 1} (Inglés)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ex: Tourist transport" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    {includesFields.length > 1 && (
+                      <Button type="button" variant="outline" size="icon" onClick={() => removeIncludes(index)}>
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => appendIncludes({ es: "", en: "" })}
+                  className="w-full"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Agregar Item Incluido
+                </Button>
+              </CardContent>
+            </Card>
 
-                <TabsContent value="itinerary" className="mt-0">
-                  <ItineraryForm
-                    data={formData}
-                    onChange={(data: Partial<TourFormData>) => updateFormData("itinerary", data)}
-                  />
-                </TabsContent>
+            {/* No Incluye */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <XCircle className="h-5 w-5" />
+                  Qué No Incluye *
+                </CardTitle>
+                <CardDescription>Servicios y elementos NO incluidos en el tour (mínimo 1)</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {notIncludesFields.map((field, index) => (
+                  <div key={field.id} className="flex gap-4 items-end">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                      <FormField
+                        control={form.control}
+                        name={`notIncludes.${index}.es`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>No Incluye {index + 1} (Español) *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ej: Almuerzos" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`notIncludes.${index}.en`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>No Incluye {index + 1} (Inglés)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ex: Lunches" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    {notIncludesFields.length > 1 && (
+                      <Button type="button" variant="outline" size="icon" onClick={() => removeNotIncludes(index)}>
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => appendNotIncludes({ es: "", en: "" })}
+                  className="w-full"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Agregar Item No Incluido
+                </Button>
+              </CardContent>
+            </Card>
 
-                <TabsContent value="includes" className="mt-0">
-                  <IncludesForm
-                    data={formData}
-                    onChange={(data: Partial<TourFormData>) => updateFormData("includes", data)}
-                  />
-                </TabsContent>
-              </div>
-            </Tabs>
-          </CardContent>
-        </Card>
+            {/* Qué Traer */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Backpack className="h-5 w-5" />
+                  Qué Traer *
+                </CardTitle>
+                <CardDescription>Items que el cliente debe traer (mínimo 1)</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {toBringFields.map((field, index) => (
+                  <div key={field.id} className="flex gap-4 items-end">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                      <FormField
+                        control={form.control}
+                        name={`toBring.${index}.es`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Traer {index + 1} (Español) *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ej: Ropa abrigadora" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`toBring.${index}.en`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Traer {index + 1} (Inglés)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ex: Warm clothing" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    {toBringFields.length > 1 && (
+                      <Button type="button" variant="outline" size="icon" onClick={() => removeToBring(index)}>
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => appendToBring({ es: "", en: "" })}
+                  className="w-full"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Agregar Item a Traer
+                </Button>
+              </CardContent>
+            </Card>
 
-        {/* Información de ayuda */}
-        <Card className="border-blue-200 bg-blue-50">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
-              <div className="space-y-2 text-sm text-blue-800">
-                <p className="font-medium">Consejos para crear un buen paquete turístico:</p>
-                <ul className="list-disc ml-4 space-y-1">
-                  <li>Completa toda la información básica (marcada con *)</li>
-                  <li>Agrega imágenes atractivas para cada sección</li>
-                  <li>Selecciona las opciones de transporte disponibles</li>
-                  <li>Define claramente qué incluye y qué no incluye el tour</li>
-                  <li>Crea un itinerario detallado día por día con rutas específicas</li>
-                </ul>
-              </div>
+            {/* Condiciones */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Condiciones del Tour *
+                </CardTitle>
+                <CardDescription>Términos y condiciones del tour (mínimo 1)</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {conditionsFields.map((field, index) => (
+                  <div key={field.id} className="flex gap-4 items-end">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                      <FormField
+                        control={form.control}
+                        name={`conditions.${index}.es`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Condición {index + 1} (Español) *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ej: Mínimo 2 personas" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`conditions.${index}.en`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Condición {index + 1} (Inglés)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ex: Minimum 2 people" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    {conditionsFields.length > 1 && (
+                      <Button type="button" variant="outline" size="icon" onClick={() => removeConditions(index)}>
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => appendConditions({ es: "", en: "" })}
+                  className="w-full"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Agregar Condición
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Botones de acción */}
+            <div className="flex justify-end gap-4">
+              <Button type="button" variant="outline" onClick={() => router.back()}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Crear Tour Completo
+                  </>
+                )}
+              </Button>
             </div>
-          </CardContent>
-        </Card>
+          </form>
+        </Form>
       </div>
     </SidebarInset>
   )

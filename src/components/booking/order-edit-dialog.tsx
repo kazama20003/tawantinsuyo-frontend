@@ -65,10 +65,8 @@ export function OrderEditDialog({ trigger, order, onOrderUpdated }: OrderEditDia
   const loadData = useCallback(async () => {
     try {
       const [toursData, usersData] = await Promise.all([getToursForSelection(), getUsers()])
-
       setTours(toursData)
       setUsers(usersData)
-
       // Set selected tour - validar que tourId existe
       if (tourId) {
         const currentTour = toursData.find((t: TourSelectionOption) => t._id === tourId)
@@ -88,7 +86,6 @@ export function OrderEditDialog({ trigger, order, onOrderUpdated }: OrderEditDia
 
   // Extract dependency to avoid complex expression
   const itemsPeople = formData.items?.[0]?.people || 0
-
   useEffect(() => {
     if (selectedTour && itemsPeople > 0) {
       const newTotal = selectedTour.price * itemsPeople
@@ -129,7 +126,6 @@ export function OrderEditDialog({ trigger, order, onOrderUpdated }: OrderEditDia
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
     if (
       !formData.items?.[0]?.tour ||
       !formData.customer?.fullName ||
@@ -156,6 +152,7 @@ export function OrderEditDialog({ trigger, order, onOrderUpdated }: OrderEditDia
 
   // Format date for datetime-local input
   const formatDateForInput = (dateString: string) => {
+    if (!dateString) return ""
     try {
       const date = new Date(dateString)
       return date.toISOString().slice(0, 16)
@@ -206,7 +203,6 @@ export function OrderEditDialog({ trigger, order, onOrderUpdated }: OrderEditDia
           <DialogTitle>Editar Reserva</DialogTitle>
           <DialogDescription>Modifica la información de la reserva #{order._id.slice(-6)}</DialogDescription>
         </DialogHeader>
-
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Tour Selection */}
           <div className="space-y-2">
@@ -221,7 +217,7 @@ export function OrderEditDialog({ trigger, order, onOrderUpdated }: OrderEditDia
                     <div className="flex flex-col">
                       <span className="font-medium">{tour.title}</span>
                       <span className="text-sm text-muted-foreground">
-                        ${tour.price} - {tour.duration} - {tour.region}
+                        S/{tour.price} - {tour.duration} - {tour.region}
                       </span>
                     </div>
                   </SelectItem>
@@ -354,7 +350,6 @@ export function OrderEditDialog({ trigger, order, onOrderUpdated }: OrderEditDia
                       const people = Number.parseInt(e.target.value) || 1
                       const pricePerPerson = selectedTour?.price || formData.items?.[0]?.pricePerPerson || 0
                       const total = pricePerPerson * people
-
                       setFormData((prev) => ({
                         ...prev,
                         items: [

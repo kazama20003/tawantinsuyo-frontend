@@ -55,8 +55,9 @@ export interface OffersQueryParams {
   isActive?: boolean
 }
 
-// Tour simple para selección
+// Tour simple para selección (incluye price)
 export interface TourOption {
   _id: string
   title: string
+  price: number
 }

@@ -68,6 +68,10 @@ const nextConfig = {
         source: '/en/register',
         destination: '/register',
       },
+      {
+        source: '/en/cart',
+        destination: '/cart',
+      },
     ]
   },
   async headers() {

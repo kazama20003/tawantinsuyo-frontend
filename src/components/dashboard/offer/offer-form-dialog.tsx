@@ -1,7 +1,5 @@
 "use client"
-
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Plus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -26,6 +24,18 @@ import type { CreateOfferDto, TourOption } from "@/types/offer"
 
 interface OfferFormDialogProps {
   onOfferCreated: () => void
+}
+
+// Tipo para campos multiidioma
+type MultiLanguageField = string | { [key: string]: string } | null | undefined
+
+// Función helper para extraer texto de campos multiidioma
+const extractText = (field: MultiLanguageField): string => {
+  if (typeof field === "string") return field
+  if (typeof field === "object" && field !== null) {
+    return field.es || field.en || field.fr || Object.values(field)[0] || ""
+  }
+  return ""
 }
 
 export function OfferFormDialog({ onOfferCreated }: OfferFormDialogProps) {
@@ -53,9 +63,21 @@ export function OfferFormDialog({ onOfferCreated }: OfferFormDialogProps) {
   const fetchTours = async () => {
     try {
       const toursData = await offersApi.getToursForSelection()
-      setTours(toursData)
-    } catch {
+      // Procesar los tours para manejar campos multiidioma
+      const processedTours = toursData.map((tour) => ({
+        ...tour,
+        title: extractText(tour.title),
+      }))
+      setTours(processedTours)
+    } catch (error) {
+      console.error("Error fetching tours:", error)
       toast.error("No se pudieron cargar los tours")
+      // Datos de fallback para desarrollo
+      setTours([
+        { _id: "1", title: "Tour Machu Picchu", price: 299 },
+        { _id: "2", title: "Tour Valle Sagrado", price: 199 },
+        { _id: "3", title: "Tour Cusco City", price: 149 },
+      ])
     }
   }
 
@@ -88,27 +110,22 @@ export function OfferFormDialog({ onOfferCreated }: OfferFormDialogProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
     if (!formData.title.trim()) {
       toast.error("El título es requerido")
       return
     }
-
     if (formData.discountPercentage < 0 || formData.discountPercentage > 100) {
       toast.error("El porcentaje de descuento debe estar entre 0 y 100")
       return
     }
-
     if (!formData.startDate || !formData.endDate) {
       toast.error("Las fechas de inicio y fin son requeridas")
       return
     }
-
     if (new Date(formData.startDate) >= new Date(formData.endDate)) {
       toast.error("La fecha de fin debe ser posterior a la fecha de inicio")
       return
     }
-
     if (formData.applicableTours.length === 0) {
       toast.error("Debe seleccionar al menos un tour")
       return
@@ -121,7 +138,8 @@ export function OfferFormDialog({ onOfferCreated }: OfferFormDialogProps) {
       setOpen(false)
       resetForm()
       onOfferCreated()
-    } catch {
+    } catch (error) {
+      console.error("Error creating offer:", error)
       toast.error("No se pudo crear la oferta")
     } finally {
       setLoading(false)
@@ -159,7 +177,6 @@ export function OfferFormDialog({ onOfferCreated }: OfferFormDialogProps) {
           <DialogTitle>Crear Nueva Oferta</DialogTitle>
           <DialogDescription>Crea una nueva oferta promocional para tus tours</DialogDescription>
         </DialogHeader>
-
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -172,7 +189,6 @@ export function OfferFormDialog({ onOfferCreated }: OfferFormDialogProps) {
                 required
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="discountCode">Código de Descuento</Label>
               <Input
@@ -183,7 +199,6 @@ export function OfferFormDialog({ onOfferCreated }: OfferFormDialogProps) {
               />
             </div>
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="description">Descripción</Label>
             <Textarea
@@ -194,7 +209,6 @@ export function OfferFormDialog({ onOfferCreated }: OfferFormDialogProps) {
               rows={3}
             />
           </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="discountPercentage">Porcentaje de Descuento *</Label>
@@ -208,7 +222,6 @@ export function OfferFormDialog({ onOfferCreated }: OfferFormDialogProps) {
                 required
               />
             </div>
-
             <div className="flex items-center space-x-2 pt-8">
               <Switch
                 id="isActive"
@@ -218,7 +231,6 @@ export function OfferFormDialog({ onOfferCreated }: OfferFormDialogProps) {
               <Label htmlFor="isActive">Oferta activa</Label>
             </div>
           </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="startDate">Fecha de Inicio *</Label>
@@ -230,7 +242,6 @@ export function OfferFormDialog({ onOfferCreated }: OfferFormDialogProps) {
                 required
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="endDate">Fecha de Fin *</Label>
               <Input
@@ -242,7 +253,6 @@ export function OfferFormDialog({ onOfferCreated }: OfferFormDialogProps) {
               />
             </div>
           </div>
-
           <div className="space-y-2">
             <Label>Tours Aplicables *</Label>
             <Select onValueChange={handleTourSelect}>
@@ -254,12 +264,11 @@ export function OfferFormDialog({ onOfferCreated }: OfferFormDialogProps) {
                   .filter((tour) => !selectedTours.includes(tour._id))
                   .map((tour) => (
                     <SelectItem key={tour._id} value={tour._id}>
-                      {tour.title}
+                      {tour.title} - ${tour.price}
                     </SelectItem>
                   ))}
               </SelectContent>
             </Select>
-
             {selectedTours.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {getSelectedTourNames().map((tour) => (
@@ -271,7 +280,6 @@ export function OfferFormDialog({ onOfferCreated }: OfferFormDialogProps) {
               </div>
             )}
           </div>
-
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancelar

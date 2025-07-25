@@ -1,5 +1,15 @@
 import { api } from "@/lib/axiosInstance"
-import type { Tour, CreateTourDto, UpdateTourDto } from "@/types/tour"
+import type {
+  Tour,
+  CreateTourDto,
+  UpdateTourDto,
+  TranslatedText,
+  TourCategory,
+  Difficulty,
+  PackageType,
+  TransportOption,
+  ItineraryDay,
+} from "@/types/tour"
 import { AxiosError } from "axios"
 
 interface ToursResponse {
@@ -24,8 +34,95 @@ interface ApiError {
   error?: string
 }
 
+interface RawTourData {
+  _id: string
+  title: TranslatedText | string
+  subtitle: TranslatedText | string
+  imageUrl: string
+  imageId?: string
+  price: number
+  originalPrice?: number
+  duration: TranslatedText | string
+  rating: number
+  reviews: number
+  location: string
+  region: string
+  category: TourCategory
+  difficulty: Difficulty
+  packageType: PackageType
+  highlights?: (TranslatedText | string)[]
+  featured?: boolean
+  transportOptionIds: TransportOption[]
+  itinerary?: ItineraryDay[]
+  includes?: (TranslatedText | string)[]
+  notIncludes?: (TranslatedText | string)[]
+  toBring?: (TranslatedText | string)[]
+  conditions?: (TranslatedText | string)[]
+  slug: string
+  createdAt: string
+  updatedAt: string
+}
+
+// Helper function to extract text from TranslatedText
+const extractText = (translatedText: TranslatedText | string): string => {
+  if (typeof translatedText === "string") {
+    return translatedText
+  }
+  if (translatedText && typeof translatedText === "object") {
+    return translatedText.es || translatedText.en || "Texto no disponible"
+  }
+  return "Texto no disponible"
+}
+
+// Helper function to extract array of strings from TranslatedText array
+const extractTextArray = (translatedArray?: (TranslatedText | string)[]): string[] => {
+  if (!Array.isArray(translatedArray)) return []
+
+  return translatedArray.map((item) => {
+    if (typeof item === "string") {
+      return item
+    }
+    if (item && typeof item === "object") {
+      return item.es || item.en || "Texto no disponible"
+    }
+    return "Texto no disponible"
+  })
+}
+
+// Transform raw API data to Tour type
+const transformTourData = (rawTour: RawTourData): Tour => {
+  return {
+    _id: rawTour._id,
+    title: extractText(rawTour.title),
+    subtitle: extractText(rawTour.subtitle),
+    imageUrl: rawTour.imageUrl,
+    imageId: rawTour.imageId,
+    price: rawTour.price,
+    originalPrice: rawTour.originalPrice,
+    duration: extractText(rawTour.duration),
+    rating: rawTour.rating,
+    reviews: rawTour.reviews,
+    location: rawTour.location,
+    region: rawTour.region,
+    category: rawTour.category,
+    difficulty: rawTour.difficulty,
+    packageType: rawTour.packageType,
+    highlights: extractTextArray(rawTour.highlights),
+    featured: rawTour.featured,
+    transportOptionIds: rawTour.transportOptionIds,
+    itinerary: rawTour.itinerary,
+    includes: rawTour.includes ? extractTextArray(rawTour.includes) : undefined,
+    notIncludes: rawTour.notIncludes ? extractTextArray(rawTour.notIncludes) : undefined,
+    toBring: rawTour.toBring ? extractTextArray(rawTour.toBring) : undefined,
+    conditions: rawTour.conditions ? extractTextArray(rawTour.conditions) : undefined,
+    slug: rawTour.slug,
+    createdAt: rawTour.createdAt,
+    updatedAt: rawTour.updatedAt,
+  }
+}
+
 // Datos mock para fallback durante desarrollo
-const mockToursData = [
+const mockToursData: Tour[] = [
   {
     _id: "1",
     title: "Europa Clásica Premium",
@@ -59,20 +156,27 @@ const mockToursData = [
     itinerary: [
       {
         day: 1,
-        title: "Llegada a París",
-        description: "Recepción en el aeropuerto y traslado al hotel",
-        activities: ["Check-in hotel", "Cena de bienvenida", "Paseo nocturno por el Sena"],
+        title: { es: "Llegada a París", en: "Arrival in Paris" },
+        description: {
+          es: "Recepción en el aeropuerto y traslado al hotel",
+          en: "Airport reception and hotel transfer",
+        },
+        activities: [
+          { es: "Check-in hotel", en: "Hotel check-in" },
+          { es: "Cena de bienvenida", en: "Welcome dinner" },
+          { es: "Paseo nocturno por el Sena", en: "Evening walk along the Seine" },
+        ],
         meals: ["Cena"],
         accommodation: "Hotel Le Marais 4*",
         route: [
           {
-            location: "Aeropuerto Charles de Gaulle",
-            description: "Llegada y recepción",
+            location: { es: "Aeropuerto Charles de Gaulle", en: "Charles de Gaulle Airport" },
+            description: { es: "Llegada y recepción", en: "Arrival and reception" },
             imageUrl: "/placeholder.svg?height=200&width=300&text=Aeropuerto",
           },
           {
-            location: "Hotel Le Marais",
-            description: "Check-in y descanso",
+            location: { es: "Hotel Le Marais", en: "Hotel Le Marais" },
+            description: { es: "Check-in y descanso", en: "Check-in and rest" },
             imageUrl: "/placeholder.svg?height=200&width=300&text=Hotel",
           },
         ],
@@ -94,17 +198,24 @@ export const toursApi = {
   getAll: async (page = 1, limit = 10): Promise<ToursResponse> => {
     try {
       const response = await api.get(`/tours?page=${page}&limit=${limit}`)
-      return response.data
+      const apiResponse = response.data
+
+      // Transform the data to handle multilingual fields
+      const transformedData = apiResponse.data.map((tour: RawTourData) => transformTourData(tour))
+
+      return {
+        data: transformedData,
+        message: apiResponse.message,
+        pagination: apiResponse.pagination,
+      }
     } catch (error) {
       console.warn("API endpoint not available, using fallback data:", error)
-
       // Fallback data when API is not available
       console.info("Using fallback data for tours")
-
       // Mock tours data for development
       const startIndex = (page - 1) * limit
       const endIndex = startIndex + limit
-      const paginatedTours = mockToursData.slice(startIndex, endIndex) as Tour[]
+      const paginatedTours = mockToursData.slice(startIndex, endIndex)
 
       return {
         data: paginatedTours,
@@ -124,19 +235,18 @@ export const toursApi = {
     try {
       const response = await api.get(`/tours/${id}`)
       const tourResponse = response.data as TourResponse
-      return tourResponse.data
+      const tour = tourResponse.data
+
+      return transformTourData(tour)
     } catch (error) {
       console.warn(`API endpoint for tour ${id} not available, using fallback data:`, error)
-
       // Fallback data when API is not available
       console.info(`Using fallback data for tour ${id}`)
-
       // Try to find the tour in mock data first
       const mockTour = mockToursData.find((tour) => tour._id === id)
       if (mockTour) {
-        return mockTour as Tour
+        return mockTour
       }
-
       // Return a generic mock tour with the requested ID
       return {
         _id: id,
@@ -166,16 +276,13 @@ export const toursApi = {
   create: async (tourData: CreateTourDto): Promise<Tour> => {
     try {
       console.log("Sending tour data to API:", tourData)
-
       const response = await api.post("/tours", tourData)
-      return response.data
+      return transformTourData(response.data)
     } catch (error) {
       console.error("Error creating tour:", error)
-
       // Manejo de errores tipado
       if (error instanceof AxiosError) {
         const errorData = error.response?.data as ApiError | undefined
-
         if (errorData?.message) {
           throw new Error(errorData.message)
         } else if (error.response?.status === 400) {
@@ -197,14 +304,12 @@ export const toursApi = {
   update: async (id: string, tourData: UpdateTourDto): Promise<Tour> => {
     try {
       const response = await api.patch(`/tours/${id}`, tourData)
-      return response.data
+      return transformTourData(response.data)
     } catch (error) {
       console.warn(`API endpoint for updating tour ${id} not available, using fallback data:`, error)
-
       // Manejo de errores tipado
       if (error instanceof AxiosError) {
         const errorData = error.response?.data as ApiError | undefined
-
         if (errorData?.message) {
           throw new Error(errorData.message)
         } else if (error.response?.status === 400) {
@@ -217,19 +322,17 @@ export const toursApi = {
           throw new Error("Error al actualizar el tour.")
         }
       }
-
       // Fallback data when API is not available
       console.info(`Using fallback data for updating tour ${id}`)
-
       // Return a mock updated tour
       return {
         _id: id,
-        title: tourData.title || "Tour Actualizado",
-        subtitle: tourData.subtitle || "Descripción actualizada",
+        title: extractText(tourData.title) || "Tour Actualizado",
+        subtitle: extractText(tourData.subtitle) || "Descripción actualizada",
         imageUrl: tourData.imageUrl || "/placeholder.svg",
         imageId: tourData.imageId || "mock-image-id",
         price: tourData.price || 1000,
-        duration: tourData.duration || "5 días",
+        duration: extractText(tourData.duration) || "5 días",
         rating: tourData.rating || 4.5,
         reviews: tourData.reviews || 50,
         location: tourData.location || "Destino",
@@ -237,13 +340,13 @@ export const toursApi = {
         category: tourData.category || "Aventura",
         difficulty: tourData.difficulty || "Facil", // Sin tilde
         packageType: tourData.packageType || "Basico",
-        highlights: tourData.highlights || [],
+        highlights: extractTextArray(tourData.highlights),
         transportOptionIds: [],
         itinerary: tourData.itinerary,
-        includes: tourData.includes,
-        notIncludes: tourData.notIncludes,
-        toBring: tourData.toBring,
-        conditions: tourData.conditions,
+        includes: tourData.includes ? extractTextArray(tourData.includes) : undefined,
+        notIncludes: tourData.notIncludes ? extractTextArray(tourData.notIncludes) : undefined,
+        toBring: tourData.toBring ? extractTextArray(tourData.toBring) : undefined,
+        conditions: tourData.conditions ? extractTextArray(tourData.conditions) : undefined,
         slug: tourData.slug || "tour-actualizado",
         createdAt: "2024-01-01T00:00:00Z",
         updatedAt: new Date().toISOString(),
@@ -257,11 +360,9 @@ export const toursApi = {
       await api.delete(`/tours/${id}`)
     } catch (error) {
       console.warn(`API endpoint for deleting tour ${id} not available, using fallback behavior:`, error)
-
       // Manejo de errores tipado
       if (error instanceof AxiosError) {
         const errorData = error.response?.data as ApiError | undefined
-
         if (errorData?.message) {
           throw new Error(errorData.message)
         } else if (error.response?.status === 401) {
@@ -272,10 +373,8 @@ export const toursApi = {
           throw new Error("Error al eliminar el tour.")
         }
       }
-
       // Fallback behavior when API is not available
       console.info(`Using fallback behavior for deleting tour ${id}`)
-
       // Just return as if deletion was successful
       return
     }

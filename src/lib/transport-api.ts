@@ -62,10 +62,8 @@ export const transportApi = {
       return response.data
     } catch (error) {
       console.warn("API endpoint for transports not available, using fallback data:", error)
-
       // Fallback data when API is not available
       console.info("Using fallback data for transports")
-
       // Mock transports data for development
       const startIndex = (page - 1) * limit
       const endIndex = startIndex + limit
@@ -92,16 +90,13 @@ export const transportApi = {
       return response.data.data || response.data
     } catch (error) {
       console.warn(`API endpoint for transport ${id} not available, using fallback data:`, error)
-
       // Fallback data when API is not available
       console.info(`Using fallback data for transport ${id}`)
-
       // Try to find the transport in mock data first
       const mockTransport = mockTransportsData.find((transport) => transport._id === id)
       if (mockTransport) {
         return mockTransport
       }
-
       // Return a generic mock transport with the requested ID
       return {
         _id: id,
@@ -123,7 +118,6 @@ export const transportApi = {
       return response.data.data || response.data
     } catch (error) {
       console.warn("API endpoint for creating transport not available, using fallback:", error)
-
       // Fallback behavior for development
       const newTransport: TransportOption = {
         _id: `mock-${Date.now()}`,
@@ -135,7 +129,6 @@ export const transportApi = {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
-
       mockTransportsData.push(newTransport)
       return newTransport
     }
@@ -148,7 +141,6 @@ export const transportApi = {
       return response.data.data || response.data
     } catch (error) {
       console.warn(`API endpoint for updating transport ${id} not available, using fallback:`, error)
-
       // Fallback behavior for development
       const index = mockTransportsData.findIndex((t) => t._id === id)
       if (index !== -1) {
@@ -159,7 +151,6 @@ export const transportApi = {
         }
         return mockTransportsData[index]
       }
-
       throw new Error(`Transport with ID ${id} not found`)
     }
   },
@@ -171,14 +162,12 @@ export const transportApi = {
       return response.data
     } catch (error) {
       console.warn(`API endpoint for deleting transport ${id} not available, using fallback:`, error)
-
       // Fallback behavior for development
       const index = mockTransportsData.findIndex((t) => t._id === id)
       if (index !== -1) {
         mockTransportsData.splice(index, 1)
         return { success: true, message: "Transporte eliminado exitosamente (desarrollo)" }
       }
-
       throw new Error(`Transport with ID ${id} not found`)
     }
   },

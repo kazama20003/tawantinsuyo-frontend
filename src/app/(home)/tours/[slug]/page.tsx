@@ -1,43 +1,55 @@
 "use client"
-
 import { Button } from "@/components/ui/button"
 import {
   Clock,
   Star,
-  Mountain,
   MapPin,
   Users,
-  Calendar,
   Check,
   Camera,
-  ArrowRight,
   ArrowLeft,
-  Share2,
   Heart,
   ChevronDown,
-  ChevronUp,
   Loader2,
   AlertCircle,
   Phone,
   Mail,
   MessageCircle,
   Shield,
-  Award,
-  Globe,
-  Plane,
-  Route,
   X,
   ChevronLeft,
   ChevronRight,
-  CalendarDays,
+  Navigation,
+  Award,
+  Route,
+  Utensils,
+  Bed,
+  Mountain,
+  Share2,
+  Eye,
+  Calendar,
+  Plus,
+  Minus,
+  ShoppingCart,
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { useParams, useRouter, usePathname } from "next/navigation"
 import { api } from "@/lib/axiosInstance"
-import type { Tour, TourCategory, Difficulty, TransportOption } from "@/types/tour"
+import type {
+  Tour,
+  TourCategory,
+  Difficulty,
+  TransportOption,
+  TranslatedText,
+  ItineraryDay,
+  RoutePoint,
+} from "@/types/tour"
 import { getTranslation, type Locale } from "@/lib/i18n"
+import { motion, AnimatePresence } from "framer-motion"
+import { toast } from "sonner"
+import Header from "@/components/header"
 
 interface ImageData {
   url: string
@@ -45,19 +57,30 @@ interface ImageData {
   type: string
 }
 
-interface ItineraryDay {
-  day: number
-  title: string
-  description: string
-  activities: string[]
-  imageUrl?: string
-  route?: Array<{
-    location: string
-    description?: string
-    imageUrl?: string
-  }>
-  meals?: string[]
-  accommodation?: string
+// Helper function to get translated text
+const getTranslatedText = (text: string | TranslatedText, locale: Locale): string => {
+  if (typeof text === "string") {
+    return text
+  }
+  if (text && typeof text === "object") {
+    return text[locale] || text.es || text.en || ""
+  }
+  return ""
+}
+
+// Interface for cart item
+interface CartItemDto {
+  tour: string
+  startDate: string
+  people: number
+  pricePerPerson: number
+  total: number
+  notes?: string
+}
+
+interface CreateCartDto {
+  items: CartItemDto[]
+  totalPrice: number
 }
 
 export default function TourDetailPage() {
@@ -68,12 +91,19 @@ export default function TourDetailPage() {
   const [tour, setTour] = useState<Tour | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState("overview")
   const [expandedDay, setExpandedDay] = useState<number | null>(null)
-  const [selectedTransport, setSelectedTransport] = useState<TransportOption | null>(null)
+  const [, setSelectedTransport] = useState<TransportOption | null>(null)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [allImages, setAllImages] = useState<ImageData[]>([])
   const [isGalleryOpen, setIsGalleryOpen] = useState(false)
+  const [isFavorite, setIsFavorite] = useState(false)
+
+  // Booking modal states
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
+  const [selectedDate, setSelectedDate] = useState("")
+  const [peopleCount, setPeopleCount] = useState(2)
+  const [notes, setNotes] = useState("")
+  const [isAddingToCart, setIsAddingToCart] = useState(false)
 
   // Get current locale from pathname
   const currentLocale: Locale = pathname.startsWith("/en") ? "en" : "es"
@@ -95,15 +125,17 @@ export default function TourDetailPage() {
     [currentLocale],
   )
 
-  // Fetch tour details
+  // Fetch tour details with language parameter
   const fetchTour = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
-      const response = await api.get(`/tours/slug/${slug}`)
+      // Add language parameter to the API call
+      const langParam = currentLocale === "en" ? "?lang=en" : ""
+      const response = await api.get(`/tours/slug/${slug}${langParam}`)
       let tourData = response.data
 
-      // Validar estructura de respuesta
+      // Validate response structure
       if (tourData && typeof tourData === "object" && !Array.isArray(tourData)) {
         if (tourData.data) {
           tourData = tourData.data
@@ -113,11 +145,11 @@ export default function TourDetailPage() {
       }
 
       if (!tourData || !tourData._id) {
-        setError(t("error"))
+        setError(t("tourNotFound"))
         return
       }
 
-      console.log("Tour cargado:", tourData)
+      console.log("Tour loaded:", tourData)
       setTour(tourData)
 
       // Collect all images for gallery
@@ -125,19 +157,27 @@ export default function TourDetailPage() {
 
       // Main image
       if (tourData.imageUrl) {
-        images.push({ url: tourData.imageUrl, alt: tourData.title, type: "main" })
+        images.push({ url: tourData.imageUrl, alt: getTranslatedText(tourData.title, currentLocale), type: "main" })
       }
 
       // Itinerary images
       if (tourData.itinerary) {
         tourData.itinerary.forEach((day: ItineraryDay) => {
           if (day.imageUrl) {
-            images.push({ url: day.imageUrl, alt: `${t("day")} ${day.day}: ${day.title}`, type: "day" })
+            images.push({
+              url: day.imageUrl,
+              alt: `${t("day")} ${day.day}: ${getTranslatedText(day.title, currentLocale)}`,
+              type: "day",
+            })
           }
           if (day.route) {
-            day.route.forEach((point: { imageUrl?: string; location: string }) => {
+            day.route.forEach((point: RoutePoint) => {
               if (point.imageUrl) {
-                images.push({ url: point.imageUrl, alt: point.location, type: "route" })
+                images.push({
+                  url: point.imageUrl,
+                  alt: getTranslatedText(point.location, currentLocale),
+                  type: "route",
+                })
               }
             })
           }
@@ -156,47 +196,43 @@ export default function TourDetailPage() {
     } finally {
       setLoading(false)
     }
-  }, [slug, t])
+  }, [slug, t, currentLocale])
 
   useEffect(() => {
     fetchTour()
   }, [fetchTour])
 
-  // Scroll to booking section if hash is present
+  // Set minimum date to today
   useEffect(() => {
-    if (typeof window !== "undefined" && window.location.hash === "#booking") {
-      setTimeout(() => {
-        const bookingElement = document.getElementById("booking-section")
-        if (bookingElement) {
-          bookingElement.scrollIntoView({ behavior: "smooth" })
-        }
-      }, 1000)
-    }
+    const today = new Date()
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    setSelectedDate(tomorrow.toISOString().split("T")[0])
   }, [])
 
   const getCategoryColor = useCallback((category: TourCategory): string => {
     const colors = {
-      Aventura: "bg-red-100 text-red-700 border-red-300",
-      Cultural: "bg-purple-100 text-purple-700 border-purple-300",
-      Relajación: "bg-green-100 text-green-700 border-green-300",
-      Naturaleza: "bg-emerald-100 text-emerald-700 border-emerald-300",
-      Trekking: "bg-orange-100 text-orange-700 border-orange-300",
-      Panoramico: "bg-blue-100 text-blue-700 border-blue-300",
-      "Transporte Turistico": "bg-gray-100 text-gray-700 border-gray-300",
+      Aventura: "bg-red-500 text-white",
+      Cultural: "bg-purple-500 text-white",
+      Relajación: "bg-green-500 text-white",
+      Naturaleza: "bg-emerald-500 text-white",
+      Trekking: "bg-orange-500 text-white",
+      Panoramico: "bg-blue-500 text-white",
+      "Transporte Turistico": "bg-gray-500 text-white",
     }
-    return colors[category] || "bg-gray-100 text-gray-700 border-gray-300"
+    return colors[category] || "bg-gray-500 text-white"
   }, [])
 
   const getDifficultyColor = useCallback((difficulty: Difficulty): string => {
     switch (difficulty) {
       case "Facil":
-        return "bg-green-100 text-green-700 border-green-300"
+        return "bg-green-500 text-white"
       case "Moderado":
-        return "bg-yellow-100 text-yellow-700 border-yellow-300"
+        return "bg-yellow-500 text-white"
       case "Difícil":
-        return "bg-red-100 text-red-700 border-red-300"
+        return "bg-red-500 text-white"
       default:
-        return "bg-gray-100 text-gray-700 border-gray-300"
+        return "bg-gray-500 text-white"
     }
   }, [])
 
@@ -206,11 +242,6 @@ export default function TourDetailPage() {
     },
     [expandedDay],
   )
-
-  const handleBooking = useCallback((): void => {
-    // Handle booking logic here
-    console.log("Booking initiated")
-  }, [])
 
   const openImageGallery = useCallback(
     (imageUrl: string): void => {
@@ -239,1038 +270,1040 @@ export default function TourDetailPage() {
     [allImages, currentImageIndex],
   )
 
+  const toggleFavorite = useCallback(() => {
+    setIsFavorite(!isFavorite)
+  }, [isFavorite])
+
+  // Handle booking modal
+  const openBookingModal = useCallback(() => {
+    setIsBookingModalOpen(true)
+  }, [])
+
+  const closeBookingModal = useCallback(() => {
+    setIsBookingModalOpen(false)
+    setNotes("")
+  }, [])
+
+  // Handle people count
+  const incrementPeople = useCallback(() => {
+    setPeopleCount((prev) => Math.min(prev + 1, 15))
+  }, [])
+
+  const decrementPeople = useCallback(() => {
+    setPeopleCount((prev) => Math.max(prev - 1, 1))
+  }, [])
+
+  // Calculate total price
+  const totalPrice = useMemo(() => {
+    if (!tour) return 0
+    return tour.price * peopleCount
+  }, [tour, peopleCount])
+
+  // Handle add to cart
+  const handleAddToCart = useCallback(async () => {
+    if (!tour || !selectedDate) {
+      toast.error(currentLocale === "es" ? "Por favor completa todos los campos" : "Please complete all fields")
+      return
+    }
+
+    setIsAddingToCart(true)
+
+    try {
+      const cartData: CreateCartDto = {
+        items: [
+          {
+            tour: tour._id,
+            startDate: new Date(selectedDate).toISOString(),
+            people: peopleCount,
+            pricePerPerson: tour.price,
+            total: totalPrice,
+            notes: notes.trim() || undefined,
+          },
+        ],
+        totalPrice: totalPrice,
+      }
+
+      await api.post("/cart", cartData)
+
+      toast.success(
+        currentLocale === "es" ? "¡Tour agregado al carrito exitosamente!" : "Tour added to cart successfully!",
+      )
+
+      closeBookingModal()
+
+      // Redirect to cart page
+      setTimeout(() => {
+        router.push(getLocalizedLink("/cart"))
+      }, 1000)
+    } catch (error: unknown) {
+      console.error("Error adding to cart:", error)
+      toast.error(
+        currentLocale === "es"
+          ? "Error al agregar al carrito. Inténtalo de nuevo."
+          : "Error adding to cart. Please try again.",
+      )
+    } finally {
+      setIsAddingToCart(false)
+    }
+  }, [tour, selectedDate, peopleCount, totalPrice, notes, currentLocale, closeBookingModal, router, getLocalizedLink])
+
+  // Handle WhatsApp contact
+  const handleWhatsAppContact = useCallback(() => {
+    if (!tour) return
+
+    const message = encodeURIComponent(
+      `¡Hola! Me interesa el tour "${getTranslatedText(tour.title, currentLocale)}" 
+      
+📍 Destino: ${tour.location}
+⏰ Duración: ${getTranslatedText(tour.duration, currentLocale)}
+💰 Precio: S/${tour.price} por persona
+⭐ Rating: ${tour.rating}/5
+
+¿Podrían darme más información y ayudarme con la reserva?
+
+Gracias!`,
+    )
+
+    const whatsappUrl = `https://wa.me/51913876154?text=${message}`
+    window.open(whatsappUrl, "_blank")
+  }, [tour, currentLocale])
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-blue-50 flex items-center justify-center">
-        <div className="text-center p-4">
-          <Loader2 className="w-8 h-8 md:w-12 md:h-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <h2 className="text-xl md:text-2xl font-bold text-black mb-2">{t("loading")}</h2>
-          <p className="text-sm md:text-base text-gray-600">{t("preparingInformation")}</p>
-        </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center p-8">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-6" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">{t("loading")}</h2>
+          <p className="text-gray-600">{t("loading")}</p>
+        </motion.div>
       </div>
     )
   }
 
   if (error || !tour) {
     return (
-      <div className="min-h-screen bg-blue-50 flex items-center justify-center px-4">
-        <div className="text-center max-w-md mx-auto">
-          <div className="w-12 h-12 md:w-16 md:h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <AlertCircle className="w-6 h-6 md:w-8 md:h-8 text-red-600" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center max-w-md mx-auto"
+        >
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-8 h-8 text-red-600" />
           </div>
-          <h2 className="text-xl md:text-2xl font-bold text-black mb-2">{t("tourNotFound")}</h2>
-          <p className="text-sm md:text-base text-gray-600 mb-4">{error || t("tourNotFoundDescription")}</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">{t("tourNotFound")}</h2>
+          <p className="text-gray-600 mb-6">{error || t("tourNotFound")}</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button
-              onClick={() => router.back()}
-              className="bg-gray-600 hover:bg-gray-700 text-white font-bold px-4 md:px-6 py-2 md:py-3 rounded-lg text-sm md:text-base"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
+            <Button onClick={() => router.back()} variant="outline" className="flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" />
               {t("goBack")}
             </Button>
             <Link href={getLocalizedLink("/tours")}>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 md:px-6 py-2 md:py-3 rounded-lg text-sm md:text-base">
-                {t("viewAllTours")}
-              </Button>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white">{t("tours")}</Button>
             </Link>
           </div>
-        </div>
+        </motion.div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-blue-50">
-      {/* Image Gallery Modal */}
-      {isGalleryOpen && allImages.length > 0 && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-2 sm:p-4">
-          <div className="relative w-full h-full max-w-6xl max-h-full flex items-center justify-center">
-            {/* Close Button */}
-            <button
-              onClick={closeGallery}
-              className="absolute top-2 sm:top-4 right-2 sm:right-4 z-10 w-8 h-8 sm:w-12 sm:h-12 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full flex items-center justify-center transition-all duration-300"
+    <div className="min-h-screen bg-white">
+      <Header />
+
+      {/* Booking Modal */}
+      <AnimatePresence>
+        {isBookingModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl"
             >
-              <X className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
-            </button>
-
-            {/* Navigation Buttons */}
-            {allImages.length > 1 && (
-              <>
-                <button
-                  onClick={() => navigateImage("prev")}
-                  className="absolute left-2 sm:left-4 z-10 w-8 h-8 sm:w-12 sm:h-12 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full flex items-center justify-center transition-all duration-300"
-                >
-                  <ChevronLeft className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
+              {/* Modal Header */}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">
+                  {currentLocale === "es" ? "Reservar Tour" : "Book Tour"}
+                </h3>
+                <button onClick={closeBookingModal} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <X className="w-5 h-5 text-gray-500" />
                 </button>
-                <button
-                  onClick={() => navigateImage("next")}
-                  className="absolute right-2 sm:right-4 z-10 w-8 h-8 sm:w-12 sm:h-12 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full flex items-center justify-center transition-all duration-300"
-                >
-                  <ChevronRight className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
-                </button>
-              </>
-            )}
-
-            {/* Image */}
-            <div className="relative w-full h-full flex items-center justify-center">
-              <Image
-                src={allImages[currentImageIndex].url || "/placeholder.svg"}
-                alt={allImages[currentImageIndex].alt}
-                fill
-                className="object-contain"
-                sizes="100vw"
-              />
-            </div>
-
-            {/* Image Counter */}
-            <div className="absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-3 py-1 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm">
-              {currentImageIndex + 1} / {allImages.length}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* CONTENIDO PRINCIPAL - SIN ESPACIOS SUPERIORES */}
-      <div className="w-full">
-        {/* Breadcrumb - PEGADO DIRECTAMENTE AL HEADER */}
-        <section className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
-            <nav className="flex items-center gap-2 md:gap-3 text-sm md:text-base mb-2 md:mb-3 overflow-x-auto">
-              <Link
-                href={getLocalizedLink("/")}
-                className="text-blue-600 hover:text-blue-800 font-medium transition-colors whitespace-nowrap flex items-center gap-2"
-              >
-                <span className="text-base md:text-lg">🏠</span>
-                <span className="hidden sm:inline">{t("home")}</span>
-              </Link>
-              <span className="text-gray-400 text-sm md:text-base">/</span>
-              <Link
-                href={getLocalizedLink("/tours")}
-                className="text-blue-600 hover:text-blue-800 font-medium transition-colors whitespace-nowrap flex items-center gap-2"
-              >
-                <span className="text-base md:text-lg">🗺️</span>
-                <span className="hidden sm:inline">{t("tours")}</span>
-              </Link>
-              <span className="text-gray-400 text-sm md:text-base">/</span>
-              <span className="text-gray-600 font-medium truncate text-sm md:text-base max-w-xs md:max-w-md lg:max-w-lg">
-                {tour.title}
-              </span>
-            </nav>
-
-            {/* Quick Info Bar */}
-            <div className="flex flex-wrap items-center gap-2 md:gap-3 text-xs md:text-sm">
-              <div className="flex items-center gap-1 md:gap-2 bg-blue-50 px-2 md:px-3 py-1 md:py-2 rounded-full border border-blue-200">
-                <MapPin className="w-3 h-3 md:w-4 md:h-4 text-blue-600 flex-shrink-0" />
-                <span className="font-medium whitespace-nowrap">
-                  {tour.region}, {tour.location}
-                </span>
               </div>
-              <div className="flex items-center gap-1 md:gap-2 bg-green-50 px-2 md:px-3 py-1 md:py-2 rounded-full border border-green-200">
-                <Clock className="w-3 h-3 md:w-4 md:h-4 text-green-600 flex-shrink-0" />
-                <span className="font-medium whitespace-nowrap">{tour.duration}</span>
-              </div>
-              <div className="flex items-center gap-1 md:gap-2 bg-yellow-50 px-2 md:px-3 py-1 md:py-2 rounded-full border border-yellow-200">
-                <Star className="w-3 h-3 md:w-4 md:h-4 text-yellow-600 fill-current flex-shrink-0" />
-                <span className="font-medium whitespace-nowrap">
-                  {tour.rating} ({tour.reviews})
-                </span>
-              </div>
-              <div className="flex items-center gap-1 md:gap-2 bg-purple-50 px-2 md:px-3 py-1 md:py-2 rounded-full border border-purple-200">
-                <CalendarDays className="w-3 h-3 md:w-4 md:h-4 text-purple-600 flex-shrink-0" />
-                <span className="font-medium whitespace-nowrap">{t("flexibleDates")}</span>
-              </div>
-            </div>
-          </div>
-        </section>
 
-        {/* Hero Section - SIN ESPACIO SUPERIOR */}
-        <section className="bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 lg:py-12">
-            {/* Title Section */}
-            <div className="text-center mb-6 md:mb-8 lg:mb-12">
-              <div className="flex items-center justify-center gap-2 md:gap-3 mb-4 md:mb-6 flex-wrap">
-                <span className="text-xs md:text-sm font-bold text-blue-600 uppercase tracking-wide bg-blue-50 px-3 md:px-4 py-1 md:py-2 rounded-full border border-blue-200">
-                  {tour.region}
-                </span>
-                <span className="text-gray-400 hidden sm:inline">•</span>
-                <span className="text-xs md:text-sm text-gray-600 bg-gray-50 px-3 md:px-4 py-1 md:py-2 rounded-full border border-gray-200">
-                  📍 {tour.location}
-                </span>
+              {/* Tour Info */}
+              <div className="mb-6 p-4 bg-gray-50 rounded-xl">
+                <h4 className="font-semibold text-gray-900 mb-2">{getTranslatedText(tour.title, currentLocale)}</h4>
+                <div className="flex items-center gap-4 text-sm text-gray-600">
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-4 h-4" />
+                    {tour.location}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
+                    {getTranslatedText(tour.duration, currentLocale)}
+                  </span>
+                </div>
               </div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black text-black leading-tight mb-4 md:mb-6 px-4">
-                {tour.title}
-              </h1>
-              <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-700 leading-relaxed max-w-4xl mx-auto px-4">
-                {tour.subtitle}
-              </p>
-            </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 lg:gap-12">
-              {/* Left - Images */}
-              <div className="lg:col-span-2">
-                <div
-                  className="relative h-80 sm:h-96 md:h-[500px] lg:h-[600px] rounded-2xl md:rounded-3xl overflow-hidden border-2 md:border-4 border-black group cursor-pointer"
-                  onClick={() =>
-                    openImageGallery(tour.imageUrl || "/placeholder.svg?height=500&width=800&text=Tour+Image")
-                  }
-                >
-                  <Image
-                    src={tour.imageUrl || "/placeholder.svg?height=500&width=800&text=Tour+Image"}
-                    alt={tour.title}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-700"
+              {/* Date Selection */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {currentLocale === "es" ? "Fecha de inicio" : "Start Date"}
+                </label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    min={new Date().toISOString().split("T")[0]}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                </div>
+              </div>
 
-                  {/* Image Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+              {/* People Count */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {currentLocale === "es" ? "Número de personas" : "Number of People"}
+                </label>
+                <div className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
+                  <button
+                    onClick={decrementPeople}
+                    disabled={peopleCount <= 1}
+                    className="w-10 h-10 bg-white rounded-full flex items-center justify-center border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <span className="text-lg font-semibold text-gray-900 px-4">
+                    {peopleCount}{" "}
+                    {peopleCount === 1
+                      ? currentLocale === "es"
+                        ? "persona"
+                        : "person"
+                      : currentLocale === "es"
+                        ? "personas"
+                        : "people"}
+                  </span>
+                  <button
+                    onClick={incrementPeople}
+                    disabled={peopleCount >= 15}
+                    className="w-10 h-10 bg-white rounded-full flex items-center justify-center border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
 
-                  {/* Gallery Indicator */}
-                  <div className="absolute top-4 md:top-6 left-1/2 transform -translate-x-1/2">
-                    <div className="bg-white/90 backdrop-blur-sm rounded-full px-4 md:px-6 py-2 md:py-3 border border-black md:border-2 shadow-lg">
-                      <div className="flex items-center gap-2 text-sm md:text-base font-bold text-black">
-                        <Camera className="w-4 h-4 md:w-5 md:h-5" />
-                        <span>
+              {/* Notes */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {currentLocale === "es" ? "Notas adicionales (opcional)" : "Additional Notes (optional)"}
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder={
+                    currentLocale === "es"
+                      ? "Ej: Asientos juntos, dieta especial, etc."
+                      : "E.g: Seats together, special diet, etc."
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  rows={3}
+                />
+              </div>
+
+              {/* Price Summary */}
+              <div className="mb-6 p-4 bg-blue-50 rounded-xl">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-600">
+                    S/{tour.price} x {peopleCount}{" "}
+                    {peopleCount === 1
+                      ? currentLocale === "es"
+                        ? "persona"
+                        : "person"
+                      : currentLocale === "es"
+                        ? "personas"
+                        : "people"}
+                  </span>
+                  <span className="font-semibold">S/{totalPrice}</span>
+                </div>
+                <div className="border-t border-blue-200 pt-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-lg">Total:</span>
+                    <span className="font-bold text-xl text-blue-600">S/{totalPrice}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <Button onClick={closeBookingModal} variant="outline" className="flex-1 bg-transparent">
+                  {currentLocale === "es" ? "Cancelar" : "Cancel"}
+                </Button>
+                <Button
+                  onClick={handleAddToCart}
+                  disabled={isAddingToCart || !selectedDate}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {isAddingToCart ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {currentLocale === "es" ? "Agregando..." : "Adding..."}
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart className="w-4 h-4 mr-2" />
+                      {currentLocale === "es" ? "Agregar al Carrito" : "Add to Cart"}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Image Gallery Modal */}
+      <AnimatePresence>
+        {isGalleryOpen && allImages.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-95 z-50 flex items-center justify-center p-2 sm:p-4"
+          >
+            <div className="relative w-full h-full max-w-7xl max-h-full flex items-center justify-center">
+              {/* Close Button */}
+              <button
+                onClick={closeGallery}
+                className="absolute top-2 right-2 sm:top-4 sm:right-4 z-10 w-10 h-10 sm:w-12 sm:h-12 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm"
+              >
+                <X className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </button>
+
+              {/* Navigation Buttons */}
+              {allImages.length > 1 && (
+                <>
+                  <button
+                    onClick={() => navigateImage("prev")}
+                    className="absolute left-2 sm:left-4 z-10 w-10 h-10 sm:w-12 sm:h-12 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm"
+                  >
+                    <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </button>
+                  <button
+                    onClick={() => navigateImage("next")}
+                    className="absolute right-2 sm:right-4 z-10 w-10 h-10 sm:w-12 sm:h-12 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm"
+                  >
+                    <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </button>
+                </>
+              )}
+
+              {/* Image */}
+              <div className="relative w-full h-full flex items-center justify-center p-4 sm:p-8">
+                <Image
+                  src={allImages[currentImageIndex].url || "/placeholder.svg"}
+                  alt={allImages[currentImageIndex].alt}
+                  fill
+                  className="object-contain"
+                  sizes="100vw"
+                />
+              </div>
+
+              {/* Image Counter */}
+              <div className="absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-60 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-full text-sm backdrop-blur-sm">
+                {currentImageIndex + 1} / {allImages.length}
+              </div>
+
+              {/* Image Info */}
+              <div className="absolute bottom-12 sm:bottom-16 left-4 right-4 text-center">
+                <p className="text-white text-sm sm:text-base bg-black bg-opacity-50 backdrop-blur-sm rounded-lg px-4 py-2 max-w-md mx-auto">
+                  {allImages[currentImageIndex].alt}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Hero Section with Background Image - Full Width Mobile Responsive */}
+      <section className="relative min-h-screen w-full">
+        {/* Background Image */}
+        <div className="absolute inset-0">
+          <Image
+            src={tour.imageUrl || "/placeholder.svg?height=1080&width=1920&text=Tour+Image"}
+            alt={getTranslatedText(tour.title, currentLocale)}
+            fill
+            className="object-cover"
+            priority
+            sizes="100vw"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/70"></div>
+        </div>
+
+        {/* Content Overlay - Mobile First Design */}
+        <div className="relative z-10 min-h-screen flex flex-col pt-48 sm:pt-56 pb-8 sm:pb-16">
+          {/* Breadcrumb - Mobile Optimized */}
+          <div className="mb-4 sm:mb-8">
+            <div className="w-full px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+              <nav className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-white/90 mb-4 overflow-x-auto">
+                <Link
+                  href={getLocalizedLink("/")}
+                  className="hover:text-white transition-colors flex items-center gap-1 bg-black/20 backdrop-blur-sm px-2 sm:px-3 py-1 rounded-full whitespace-nowrap"
+                >
+                  <span>🏠</span>
+                  <span className="hidden sm:inline">{t("home")}</span>
+                </Link>
+                <span className="text-white/60">/</span>
+                <Link
+                  href={getLocalizedLink("/tours")}
+                  className="hover:text-white transition-colors flex items-center gap-1 bg-black/20 backdrop-blur-sm px-2 sm:px-3 py-1 rounded-full whitespace-nowrap"
+                >
+                  <span>🗺️</span>
+                  <span className="hidden sm:inline">{t("tours")}</span>
+                </Link>
+                <span className="text-white/60">/</span>
+                <span className="text-white font-medium truncate max-w-[120px] sm:max-w-xs bg-black/20 backdrop-blur-sm px-2 sm:px-3 py-1 rounded-full">
+                  {getTranslatedText(tour.title, currentLocale)}
+                </span>
+              </nav>
+            </div>
+          </div>
+
+          {/* Main Content - Mobile First Grid */}
+          <div className="flex-1 flex items-center">
+            <div className="w-full px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+                {/* Left Content - Mobile Optimized */}
+                <motion.div
+                  initial={{ opacity: 0, x: -50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.8 }}
+                  className="text-white order-2 lg:order-1"
+                >
+                  {/* Badges - Mobile Responsive */}
+                  <div className="flex flex-wrap gap-2 sm:gap-3 mb-4 sm:mb-6">
+                    <span className="text-xs font-bold uppercase tracking-wide bg-white/20 backdrop-blur-sm px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border border-white/30">
+                      📍 {tour.region}
+                    </span>
+                    <span
+                      className={`text-xs font-bold px-3 py-1.5 sm:px-4 sm:py-2 rounded-full ${getCategoryColor(tour.category)}`}
+                    >
+                      {tour.category}
+                    </span>
+                    <span
+                      className={`text-xs font-bold px-3 py-1.5 sm:px-4 sm:py-2 rounded-full ${getDifficultyColor(tour.difficulty)}`}
+                    >
+                      <Mountain className="w-3 h-3 inline mr-1" />
+                      {tour.difficulty}
+                    </span>
+                    {tour.featured && (
+                      <span className="text-xs font-bold bg-gradient-to-r from-pink-500 to-red-500 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-full">
+                        ⭐ {currentLocale === "es" ? "DESTACADO" : "FEATURED"}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Title - Mobile Responsive */}
+                  <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-4 sm:mb-6 drop-shadow-lg">
+                    {getTranslatedText(tour.title, currentLocale)}
+                  </h1>
+
+                  {/* Subtitle - Mobile Responsive */}
+                  <p className="text-lg sm:text-xl text-white/90 leading-relaxed mb-6 sm:mb-8 max-w-2xl drop-shadow-md">
+                    {getTranslatedText(tour.subtitle, currentLocale)}
+                  </p>
+
+                  {/* Quick Stats - Mobile Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+                    <div className="bg-white/15 backdrop-blur-sm rounded-xl p-3 sm:p-4 text-center border border-white/20">
+                      <MapPin className="w-5 h-5 sm:w-6 sm:h-6 mx-auto mb-1 sm:mb-2 text-blue-300" />
+                      <div className="text-xs sm:text-sm font-medium">{tour.location}</div>
+                    </div>
+                    <div className="bg-white/15 backdrop-blur-sm rounded-xl p-3 sm:p-4 text-center border border-white/20">
+                      <Clock className="w-5 h-5 sm:w-6 sm:h-6 mx-auto mb-1 sm:mb-2 text-green-300" />
+                      <div className="text-xs sm:text-sm font-medium">
+                        {getTranslatedText(tour.duration, currentLocale)}
+                      </div>
+                    </div>
+                    <div className="bg-white/15 backdrop-blur-sm rounded-xl p-3 sm:p-4 text-center border border-white/20">
+                      <Star className="w-5 h-5 sm:w-6 sm:h-6 mx-auto mb-1 sm:mb-2 text-yellow-300 fill-current" />
+                      <div className="text-xs sm:text-sm font-medium">{tour.rating}/5</div>
+                    </div>
+                    <div className="bg-white/15 backdrop-blur-sm rounded-xl p-3 sm:p-4 text-center border border-white/20">
+                      <Users className="w-5 h-5 sm:w-6 sm:h-6 mx-auto mb-1 sm:mb-2 text-purple-300" />
+                      <div className="text-xs sm:text-sm font-medium">2-15</div>
+                    </div>
+                  </div>
+
+                  {/* Actions - Mobile Responsive */}
+                  <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
+                    <Button
+                      onClick={openBookingModal}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-bold rounded-full shadow-lg hover:shadow-xl transition-all w-full sm:w-auto"
+                    >
+                      {t("bookNow")} - S/{tour.price}
+                    </Button>
+                    <div className="flex gap-3 sm:gap-4">
+                      <Button
+                        onClick={() => openImageGallery(tour.imageUrl || "")}
+                        className="border-2 border-white/40 text-white hover:bg-white/20 px-4 sm:px-6 py-3 sm:py-4 rounded-full backdrop-blur-sm bg-white/10 flex-1 sm:flex-none"
+                      >
+                        <Camera className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                        <span className="hidden sm:inline">
                           {allImages.length} {t("photos")}
                         </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Top Badges */}
-                  <div className="absolute top-16 md:top-24 left-4 md:left-6 flex flex-wrap gap-2 md:gap-3 max-w-[70%] md:max-w-[60%]">
-                    <div
-                      className={`px-3 md:px-4 py-1 md:py-2 rounded-lg md:rounded-xl font-black text-xs md:text-sm border border-white md:border-2 shadow-lg backdrop-blur-sm ${getCategoryColor(tour.category)}`}
-                    >
-                      {tour.category.toUpperCase()}
-                    </div>
-                    <div
-                      className={`px-3 md:px-4 py-1 md:py-2 rounded-md md:rounded-lg font-bold text-xs md:text-sm border border-white shadow-lg backdrop-blur-sm ${getDifficultyColor(tour.difficulty)}`}
-                    >
-                      {tour.difficulty}
-                    </div>
-                    {tour.packageType === "Premium" && (
-                      <div className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-black px-3 md:px-4 py-1 md:py-2 rounded-lg md:rounded-xl font-black text-xs md:text-sm border border-white md:border-2 shadow-lg">
-                        ✨ PREMIUM
-                      </div>
-                    )}
-                    {tour.featured && (
-                      <div className="bg-gradient-to-r from-pink-500 to-pink-600 text-white px-3 md:px-4 py-1 md:py-2 rounded-lg md:rounded-xl font-black text-xs md:text-sm border border-white md:border-2 shadow-lg">
-                        🔥 {currentLocale === "es" ? "DESTACADO" : "FEATURED"}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="absolute top-4 md:top-6 right-4 md:right-6 flex gap-2 md:gap-3">
-                    <button className="w-10 h-10 md:w-12 md:h-12 bg-white/90 backdrop-blur-sm rounded-full border border-black md:border-2 shadow-lg flex items-center justify-center hover:bg-white transition-colors group/share">
-                      <Share2 className="w-4 h-4 md:w-5 md:h-5 text-black group-hover/share:scale-110 transition-transform" />
-                    </button>
-                    <button className="w-10 h-10 md:w-12 md:h-12 bg-white/90 backdrop-blur-sm rounded-full border border-black md:border-2 shadow-lg flex items-center justify-center hover:bg-red-50 hover:border-red-300 transition-colors group/heart">
-                      <Heart className="w-4 h-4 md:w-5 md:h-5 text-black group-hover/heart:text-red-500 transition-colors" />
-                    </button>
-                  </div>
-
-                  {/* Bottom Info */}
-                  <div className="absolute bottom-4 md:bottom-6 left-4 md:left-6 right-4 md:right-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-                      <div className="bg-white/95 backdrop-blur-sm rounded-lg md:rounded-xl px-4 md:px-6 py-3 md:py-4 border border-black md:border-2 shadow-lg">
-                        <div className="flex items-center gap-3">
-                          <Star className="w-5 h-5 md:w-6 md:h-6 text-yellow-400 fill-current" />
-                          <div>
-                            <div className="font-black text-black text-base md:text-lg">{tour.rating}</div>
-                            <div className="text-xs md:text-sm text-gray-600">
-                              {tour.reviews} {t("reviews")}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="bg-blue-600 text-white rounded-lg md:rounded-xl px-4 md:px-6 py-3 md:py-4 border border-black md:border-2 shadow-lg">
-                        <div className="flex items-center gap-3">
-                          <MapPin className="w-4 h-4 md:w-5 md:h-5" />
-                          <div>
-                            <div className="font-bold text-sm md:text-base">{tour.location}</div>
-                            <div className="text-xs md:text-sm text-blue-200">{tour.region}</div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="bg-green-600 text-white rounded-lg md:rounded-xl px-4 md:px-6 py-3 md:py-4 border border-black md:border-2 shadow-lg">
-                        <div className="flex items-center gap-3">
-                          <Clock className="w-4 h-4 md:w-5 md:h-5" />
-                          <div>
-                            <div className="font-bold text-sm md:text-base">{tour.duration}</div>
-                            <div className="text-xs md:text-sm text-green-200">{t("duration")}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Highlights Section */}
-                <div className="mt-6 md:mt-8 lg:mt-12 bg-gradient-to-r from-blue-50 to-green-50 rounded-2xl md:rounded-3xl border-2 md:border-4 border-black p-6 md:p-8 lg:p-10">
-                  <h3 className="text-xl md:text-2xl lg:text-3xl font-black text-black mb-6 md:mb-8 flex items-center gap-3 md:gap-4">
-                    <span className="w-8 h-8 md:w-10 md:h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                      <Check className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                    </span>
-                    {t("whyChooseThisTour")}
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    {tour.highlights.map((highlight, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center gap-4 p-4 md:p-6 bg-white rounded-xl border border-gray-200 md:border-2 shadow-sm hover:shadow-md transition-shadow"
+                        <span className="sm:hidden">{allImages.length}</span>
+                      </Button>
+                      <Button
+                        onClick={toggleFavorite}
+                        className={`border-2 border-white/40 hover:bg-white/20 px-4 py-3 sm:py-4 rounded-full backdrop-blur-sm ${
+                          isFavorite ? "bg-red-500 text-white border-red-500" : "text-white bg-white/10"
+                        }`}
                       >
-                        <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-blue-600 to-green-600 rounded-full flex items-center justify-center flex-shrink-0">
-                          <Check className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                        </div>
-                        <span className="text-gray-700 font-medium text-sm md:text-base lg:text-lg">{highlight}</span>
-                      </div>
-                    ))}
+                        <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${isFavorite ? "fill-current" : ""}`} />
+                      </Button>
+                      <Button
+                        onClick={handleWhatsAppContact}
+                        className="border-2 border-green-400 text-white hover:bg-green-500 px-4 py-3 sm:py-4 rounded-full backdrop-blur-sm bg-green-500/20"
+                      >
+                        <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </Button>
+                      <Button className="border-2 border-white/40 text-white hover:bg-white/20 px-4 py-3 sm:py-4 rounded-full backdrop-blur-sm bg-white/10">
+                        <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </div>
+                </motion.div>
 
-              {/* Right - Booking Card */}
-              <div id="booking-section" className="lg:col-span-1">
-                <div className="bg-white rounded-2xl md:rounded-3xl border-2 md:border-4 border-black p-6 md:p-8 shadow-xl lg:sticky lg:top-8">
-                  {/* Price Section */}
-                  <div className="text-center mb-6 md:mb-8 p-6 md:p-8 bg-gradient-to-r from-blue-50 to-green-50 rounded-xl md:rounded-2xl border border-gray-200 md:border-2">
-                    <div className="flex items-baseline justify-center gap-3 md:gap-4 mb-3">
-                      <span className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-blue-600">
-                        S/{tour.price}
-                      </span>
+                {/* Right Content - Enhanced Booking Card - Mobile First */}
+                <motion.div
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.8, delay: 0.2 }}
+                  className="bg-white/95 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-2xl border border-white/20 order-1 lg:order-2"
+                >
+                  {/* Price Section - Mobile Optimized */}
+                  <div className="text-center mb-6 p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-green-50 rounded-xl sm:rounded-2xl">
+                    <div className="flex items-baseline justify-center gap-2 mb-2">
+                      <span className="text-3xl sm:text-4xl font-black text-blue-600">S/{tour.price}</span>
                       {tour.originalPrice && (
-                        <span className="text-xl md:text-2xl text-gray-500 line-through">S/{tour.originalPrice}</span>
+                        <span className="text-lg sm:text-xl text-gray-500 line-through">S/{tour.originalPrice}</span>
                       )}
                     </div>
-                    <p className="text-base md:text-lg text-gray-600 mb-3">{t("perPerson")}</p>
+                    <p className="text-gray-600 mb-3 text-sm sm:text-base">{t("perPerson")}</p>
                     {tour.originalPrice && (
-                      <div className="bg-green-100 text-green-700 px-4 md:px-6 py-2 md:py-3 rounded-full text-sm md:text-base font-bold inline-block border border-green-300">
-                        💰 {t("saveAmount")} S/{tour.originalPrice - tour.price}!
+                      <div className="bg-green-100 text-green-700 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-bold inline-block">
+                        💰 Ahorra S/{tour.originalPrice - tour.price}!
                       </div>
                     )}
+                  </div>
 
-                    {/* Flexible Dates Info */}
-                    <div className="mt-4 md:mt-6 pt-4 md:pt-6 border-t border-gray-200">
-                      <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                        <div className="flex items-center justify-center gap-2 mb-3">
-                          <CalendarDays className="w-5 h-5 text-purple-600" />
-                          <span className="font-bold text-purple-700 text-base">{t("flexibleDates")}</span>
-                        </div>
-                        <p className="text-sm text-purple-600 text-center mb-1">{t("availableAllYear")}</p>
-                        <p className="text-sm text-purple-600 text-center">{t("bookAnyTime")}</p>
-                      </div>
+                  {/* Quick Info - Mobile Optimized */}
+                  <div className="space-y-3 mb-6">
+                    <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-xl">
+                      <span className="text-gray-600 flex items-center gap-2 text-sm sm:text-base">
+                        <Clock className="w-4 h-4" />
+                        {t("duration")}
+                      </span>
+                      <span className="font-semibold text-sm sm:text-base">
+                        {getTranslatedText(tour.duration, currentLocale)}
+                      </span>
                     </div>
-
-                    {/* Tourist Info */}
-                    <div className="mt-4 md:mt-6 pt-4 md:pt-6 border-t border-gray-200">
-                      <div className="grid grid-cols-2 gap-3 md:gap-4 text-sm">
-                        <div className="flex items-center gap-2 text-blue-600">
-                          <Globe className="w-4 h-4" />
-                          <span>{t("foreignTouristsWelcome")}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-green-600">
-                          <Plane className="w-4 h-4" />
-                          <span>{t("nationalsWelcome")}</span>
-                        </div>
-                      </div>
+                    <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-xl">
+                      <span className="text-gray-600 flex items-center gap-2 text-sm sm:text-base">
+                        <Users className="w-4 h-4" />
+                        {t("people")}
+                      </span>
+                      <span className="font-semibold text-sm sm:text-base">2-15 {t("people")}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-xl">
+                      <span className="text-gray-600 flex items-center gap-2 text-sm sm:text-base">
+                        <Star className="w-4 h-4" />
+                        {t("rating")}
+                      </span>
+                      <span className="font-semibold text-sm sm:text-base">
+                        {tour.rating}/5 ({tour.reviews})
+                      </span>
                     </div>
                   </div>
 
-                  {/* Quick Info */}
-                  <div className="space-y-4 md:space-y-6 mb-6 md:mb-8">
-                    <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                      <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
-                        <Clock className="w-5 h-5 md:w-6 md:h-6 text-white" />
-                      </div>
-                      <div>
-                        <div className="font-bold text-black text-base md:text-lg">{t("duration")}</div>
-                        <div className="text-gray-600 text-sm md:text-base">{tour.duration}</div>
-                      </div>
+                  {/* Booking Button - Mobile Optimized */}
+                  <Button
+                    onClick={openBookingModal}
+                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 sm:py-4 text-base sm:text-lg rounded-xl mb-4 sm:mb-6 shadow-lg hover:shadow-xl transition-all"
+                  >
+                    🎯 {t("bookNow")}
+                  </Button>
+
+                  {/* Contact Options - Mobile Grid */}
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-6">
+                    <Button
+                      onClick={handleWhatsAppContact}
+                      className="p-3 sm:p-4 bg-green-50 hover:bg-green-100 border border-green-200 text-green-600 hover:text-green-700"
+                    >
+                      <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </Button>
+                    <Button className="p-3 sm:p-4 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-600 hover:text-blue-700">
+                      <Phone className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </Button>
+                    <Button className="p-3 sm:p-4 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-600 hover:text-purple-700">
+                      <Mail className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </Button>
+                  </div>
+
+                  {/* Trust Indicators - Mobile Grid */}
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center text-xs">
+                    <div className="p-2 sm:p-3 bg-green-50 rounded-lg">
+                      <Shield className="w-4 h-4 sm:w-5 sm:h-5 mx-auto mb-1 text-green-600" />
+                      <div className="text-green-700 font-medium">100% Seguro</div>
                     </div>
-                    <div className="flex items-center gap-4 p-4 bg-green-50 rounded-xl border border-green-200">
-                      <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center">
-                        <Mountain className="w-5 h-5 md:w-6 md:h-6 text-white" />
+                    <div className="p-2 sm:p-3 bg-blue-50 rounded-lg">
+                      <Check className="w-4 h-4 sm:w-5 sm:h-5 mx-auto mb-1 text-blue-600" />
+                      <div className="text-blue-700 font-medium">Cancelación Gratuita</div>
+                    </div>
+                    <div className="p-2 sm:p-3 bg-purple-50 rounded-lg">
+                      <Award className="w-4 h-4 sm:w-5 sm:h-5 mx-auto mb-1 text-purple-600" />
+                      <div className="text-purple-700 font-medium">24/7</div>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+          </div>
+
+          {/* Scroll Indicator - Mobile Responsive */}
+          <div className="text-center px-4">
+            <motion.div
+              animate={{ y: [0, 10, 0] }}
+              transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
+              className="text-white/70"
+            >
+              <ChevronDown className="w-6 h-6 sm:w-8 sm:h-8 mx-auto" />
+              <p className="text-xs sm:text-sm mt-2">
+                {currentLocale === "es" ? "Desliza para más" : "Scroll for more"}
+              </p>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Content - Full Width Mobile Responsive */}
+      <section className="py-12 sm:py-16 lg:py-20 bg-gray-50 w-full">
+        <div className="w-full px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
+            {/* Left Content - Mobile First */}
+            <div className="lg:col-span-2 space-y-12 sm:space-y-16">
+              {/* Why Choose This Tour - Mobile Optimized */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-10 shadow-xl"
+              >
+                <div className="text-center mb-8 sm:mb-10">
+                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+                    {currentLocale === "es" ? "¿Por qué elegir este tour?" : "Why Choose This Tour?"}
+                  </h2>
+                  <p className="text-gray-600 text-base sm:text-lg">
+                    {currentLocale === "es"
+                      ? "Descubre las características únicas que hacen de esta experiencia algo inolvidable"
+                      : "Discover the unique features that make this experience unforgettable"}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                  {tour.highlights.map((highlight, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, x: -20 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: idx * 0.1 }}
+                      className="flex items-start gap-3 sm:gap-4 p-4 sm:p-6 bg-gradient-to-r from-blue-50 to-green-50 rounded-xl sm:rounded-2xl border border-gray-100 hover:shadow-md transition-shadow"
+                    >
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-600 to-green-600 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Check className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                       </div>
-                      <div>
-                        <div className="font-bold text-black text-base md:text-lg">{t("difficulty")}</div>
-                        <div
-                          className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${getDifficultyColor(tour.difficulty)}`}
+                      <span className="text-gray-700 font-medium text-sm sm:text-base lg:text-lg leading-relaxed">
+                        {getTranslatedText(highlight, currentLocale)}
+                      </span>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+
+              {/* Enhanced Itinerary - Mobile First Design */}
+              {tour.itinerary && tour.itinerary.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-10 shadow-xl"
+                >
+                  <div className="text-center mb-8 sm:mb-10">
+                    <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+                      {currentLocale === "es" ? "Itinerario Detallado" : "Detailed Itinerary"}
+                    </h2>
+                    <p className="text-gray-600 text-base sm:text-lg">
+                      {currentLocale === "es"
+                        ? "Explora cada día de tu aventura con rutas detalladas"
+                        : "Explore each day of your adventure with detailed routes"}
+                    </p>
+                  </div>
+                  <div className="space-y-4 sm:space-y-6">
+                    {tour.itinerary.map((day, dayIndex) => (
+                      <div
+                        key={day.day}
+                        className="border-2 border-gray-100 rounded-xl sm:rounded-2xl overflow-hidden shadow-sm"
+                      >
+                        <button
+                          onClick={() => toggleDay(day.day)}
+                          className="w-full p-4 sm:p-6 lg:p-8 text-left bg-gradient-to-r from-gray-50 to-blue-50 hover:from-blue-50 hover:to-green-50 transition-all duration-300 flex items-center justify-between group"
                         >
-                          {tour.difficulty}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 p-4 bg-purple-50 rounded-xl border border-purple-200">
-                      <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center">
-                        <Users className="w-5 h-5 md:w-6 md:h-6 text-white" />
-                      </div>
-                      <div>
-                        <div className="font-bold text-black text-base md:text-lg">{t("groupSize")}</div>
-                        <div className="text-gray-600 text-sm md:text-base">2-15 {t("people")}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Transport Selection */}
-                  {tour.transportOptionIds && tour.transportOptionIds.length > 0 && (
-                    <div className="mb-6 md:mb-8">
-                      <h4 className="font-bold text-black mb-4 flex items-center gap-2 text-base md:text-lg">
-                        🚐 {t("transportOptions")}
-                      </h4>
-                      <div className="space-y-3">
-                        {tour.transportOptionIds.map((transport) => (
-                          <button
-                            key={transport._id}
-                            onClick={() => setSelectedTransport(transport)}
-                            className={`w-full p-4 rounded-xl border-2 text-left transition-all duration-300 ${
-                              selectedTransport?._id === transport._id
-                                ? "border-blue-600 bg-blue-50"
-                                : "border-gray-200 hover:border-blue-300"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <div className="font-bold text-black text-base md:text-lg">{transport.vehicle}</div>
-                                <div className="text-sm md:text-base text-gray-600">{transport.type}</div>
+                          <div className="flex items-center gap-3 sm:gap-4 lg:gap-6 flex-1 min-w-0">
+                            {/* Day Number with Timeline - Mobile Responsive */}
+                            <div className="relative flex-shrink-0">
+                              <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 bg-gradient-to-r from-blue-600 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-base sm:text-lg lg:text-xl shadow-lg">
+                                {day.day}
                               </div>
-                              <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center">
-                                {selectedTransport?._id === transport._id && (
-                                  <div className="w-2.5 h-2.5 bg-blue-600 rounded-full"></div>
+                              {/* Timeline connector - Hidden on mobile */}
+                              {dayIndex < tour.itinerary!.length - 1 && (
+                                <div className="absolute top-12 sm:top-14 lg:top-16 left-1/2 transform -translate-x-1/2 w-0.5 sm:w-1 h-6 sm:h-8 bg-gradient-to-b from-blue-400 to-green-400 hidden sm:block"></div>
+                              )}
+                            </div>
+                            {/* Day Content - Mobile Responsive */}
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-1 sm:mb-2 group-hover:text-blue-600 transition-colors">
+                                {t("day")} {day.day}: {getTranslatedText(day.title, currentLocale)}
+                              </h3>
+                              <p className="text-gray-600 text-sm sm:text-base lg:text-lg leading-relaxed mb-2 sm:mb-4">
+                                {getTranslatedText(day.description, currentLocale)}
+                              </p>
+                              {/* Quick stats - Mobile Grid */}
+                              <div className="flex flex-wrap items-center gap-2 sm:gap-4 lg:gap-6 text-xs sm:text-sm">
+                                {day.activities && (
+                                  <span className="flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                                    <Check className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    {day.activities.length} {currentLocale === "es" ? "actividades" : "activities"}
+                                  </span>
+                                )}
+                                {day.route && (
+                                  <span className="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                                    <Navigation className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    {day.route.length} {currentLocale === "es" ? "paradas" : "stops"}
+                                  </span>
+                                )}
+                                {day.meals && (
+                                  <span className="flex items-center gap-1 text-orange-600 bg-orange-50 px-2 py-1 rounded-full">
+                                    <Utensils className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    {day.meals.length}
+                                  </span>
+                                )}
+                                {day.accommodation && (
+                                  <span className="flex items-center gap-1 text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
+                                    <Bed className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    <span className="hidden sm:inline">
+                                      {currentLocale === "es" ? "Alojamiento" : "Hotel"}
+                                    </span>
+                                  </span>
                                 )}
                               </div>
                             </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Booking Buttons */}
-                  <div className="space-y-4">
-                    <Button
-                      onClick={handleBooking}
-                      className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-black py-4 md:py-6 text-base md:text-lg lg:text-xl rounded-xl md:rounded-2xl border-2 border-blue-800 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
-                    >
-                      🎯 {t("bookNow")}
-                      <ArrowRight className="w-5 h-5 md:w-6 md:h-6 ml-2" />
-                    </Button>
-                    <div className="grid grid-cols-3 gap-3">
-                      <Button
-                        variant="outline"
-                        className="border-2 border-green-600 text-green-600 hover:bg-green-600 hover:text-white font-bold py-3 md:py-4 rounded-lg md:rounded-xl transition-all duration-300 flex items-center justify-center bg-transparent"
-                        title={t("whatsapp")}
-                      >
-                        <MessageCircle className="w-4 h-4 md:w-5 md:h-5" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white font-bold py-3 md:py-4 rounded-lg md:rounded-xl transition-all duration-300 flex items-center justify-center bg-transparent"
-                        title={t("call")}
-                      >
-                        <Phone className="w-4 h-4 md:w-5 md:h-5" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="border-2 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white font-bold py-3 md:py-4 rounded-lg md:rounded-xl transition-all duration-300 flex items-center justify-center bg-transparent"
-                        title={t("email")}
-                      >
-                        <Mail className="w-4 h-4 md:w-5 md:h-5" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Trust Indicators */}
-                  <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-gray-200">
-                    <div className="grid grid-cols-3 gap-3 md:gap-4 text-center">
-                      <div className="p-3 md:p-4 bg-green-50 rounded-lg border border-green-200">
-                        <div className="text-xl md:text-2xl font-black text-green-600">✓</div>
-                        <div className="text-xs md:text-sm text-gray-600">{t("freeCancellation")}</div>
-                      </div>
-                      <div className="p-3 md:p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <div className="text-xl md:text-2xl font-black text-blue-600">24/7</div>
-                        <div className="text-xs md:text-sm text-gray-600">{t("supportIncluded")}</div>
-                      </div>
-                      <div className="p-3 md:p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                        <div className="text-xl md:text-2xl font-black text-yellow-600">
-                          <Shield className="w-5 h-5 md:w-6 md:h-6 mx-auto" />
-                        </div>
-                        <div className="text-xs md:text-sm text-gray-600">{t("secure100")}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Main Content */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 lg:py-16">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 lg:gap-12">
-            {/* Left Content */}
-            <div className="lg:col-span-2">
-              {/* Tabs */}
-              <div className="bg-white rounded-2xl md:rounded-3xl border-2 md:border-4 border-black overflow-hidden shadow-xl">
-                {/* Tab Headers */}
-                <div className="flex border-b-2 border-black bg-gray-50 overflow-x-auto">
-                  {[
-                    { id: "overview", label: currentLocale === "es" ? "Resumen" : "Overview", icon: "📋" },
-                    { id: "itinerary", label: currentLocale === "es" ? "Itinerario" : "Itinerary", icon: "🗺️" },
-                    { id: "includes", label: currentLocale === "es" ? "Incluye" : "Includes", icon: "✅" },
-                    { id: "transport", label: currentLocale === "es" ? "Transporte" : "Transport", icon: "🚐" },
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex-1 min-w-0 px-4 md:px-6 py-4 md:py-6 font-bold text-sm sm:text-base md:text-lg transition-all duration-300 whitespace-nowrap ${
-                        activeTab === tab.id
-                          ? "bg-blue-600 text-white shadow-lg"
-                          : "bg-white text-black hover:bg-blue-50 hover:text-blue-600"
-                      }`}
-                    >
-                      <span className="mr-2 md:mr-3">{tab.icon}</span>
-                      <span className="hidden sm:inline">{tab.label}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Tab Content */}
-                <div className="p-6 md:p-8 lg:p-12">
-                  {activeTab === "overview" && (
-                    <div className="space-y-8 md:space-y-12">
-                      <div>
-                        <h3 className="text-xl md:text-2xl lg:text-3xl font-black text-black mb-4 md:mb-6 flex items-center gap-3 md:gap-4">
-                          <span className="w-8 h-8 md:w-10 md:h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                            <Award className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                          </span>
-                          {t("tourDescription")}
-                        </h3>
-                        <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-xl md:rounded-2xl p-6 md:p-8 border border-gray-200 md:border-2">
-                          <p className="text-gray-700 leading-relaxed text-base md:text-lg lg:text-xl mb-4 md:mb-6">
-                            {tour.subtitle}
-                          </p>
-                          <p className="text-gray-600 leading-relaxed text-sm md:text-base lg:text-lg">
-                            {t("thisExperienceWillTake")} {tour.region}.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-                        <div className="bg-blue-50 rounded-xl md:rounded-2xl p-6 md:p-8 border border-blue-200 md:border-2">
-                          <h4 className="font-black text-black mb-4 md:mb-6 flex items-center gap-2 text-base md:text-lg">
-                            <Calendar className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
-                            {t("generalInformation")}
-                          </h4>
-                          <div className="space-y-3 md:space-y-4">
-                            <div className="flex justify-between items-center p-3 bg-white rounded-lg">
-                              <span className="text-gray-600 text-sm md:text-base">{t("duration")}:</span>
-                              <span className="font-bold text-black text-sm md:text-base">{tour.duration}</span>
-                            </div>
-                            <div className="flex justify-between items-center p-3 bg-white rounded-lg">
-                              <span className="text-gray-600 text-sm md:text-base">{t("difficulty")}:</span>
-                              <span
-                                className={`px-3 md:px-4 py-1 md:py-2 rounded-full text-xs md:text-sm font-bold ${getDifficultyColor(tour.difficulty)}`}
-                              >
-                                {tour.difficulty}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center p-3 bg-white rounded-lg">
-                              <span className="text-gray-600 text-sm md:text-base">{t("category")}:</span>
-                              <span className="font-bold text-black text-sm md:text-base">{tour.category}</span>
-                            </div>
-                            <div className="flex justify-between items-center p-3 bg-white rounded-lg">
-                              <span className="text-gray-600 text-sm md:text-base">{t("region")}:</span>
-                              <span className="font-bold text-black text-sm md:text-base">{tour.region}</span>
-                            </div>
                           </div>
-                        </div>
-                        <div className="bg-green-50 rounded-xl md:rounded-2xl p-6 md:p-8 border border-green-200 md:border-2">
-                          <h4 className="font-black text-black mb-4 md:mb-6 flex items-center gap-2 text-base md:text-lg">
-                            <Users className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
-                            {t("groupSize")}
-                          </h4>
-                          <div className="space-y-3 md:space-y-4">
-                            <div className="flex justify-between items-center p-3 bg-white rounded-lg">
-                              <span className="text-gray-600 text-sm md:text-base">{t("groupSize")}:</span>
-                              <span className="font-bold text-black text-sm md:text-base">2-15 {t("people")}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTab === "itinerary" && (
-                    <div className="space-y-8 md:space-y-12">
-                      <div>
-                        <h3 className="text-xl md:text-2xl lg:text-3xl font-black text-black mb-4 md:mb-6 flex items-center gap-3 md:gap-4">
-                          <span className="w-8 h-8 md:w-10 md:h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                            <Route className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                          </span>
-                          {t("dayByDay")} - {t("timeline")}
-                        </h3>
-                        <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-xl md:rounded-2xl p-6 md:p-8 border border-gray-200 md:border-2">
-                          {tour.itinerary && tour.itinerary.length > 0 ? (
-                            <div className="relative">
-                              {/* Timeline Line */}
-                              <div className="absolute left-6 md:left-8 top-12 bottom-12 w-0.5 bg-gradient-to-b from-blue-500 via-green-500 to-purple-500 hidden sm:block"></div>
-
-                              {tour.itinerary.map((day) => (
-                                <div key={day.day} className="relative mb-8 md:mb-12 last:mb-0">
-                                  {/* Day Header with Timeline Dot */}
-                                  <div className="flex items-center gap-4 md:gap-6 mb-4 md:mb-6">
-                                    {/* Timeline Dot */}
-                                    <div className="relative z-10 w-12 h-12 md:w-16 md:h-16 bg-gradient-to-r from-blue-600 to-green-600 rounded-full flex items-center justify-center shadow-lg border-4 border-white">
-                                      <span className="text-white font-black text-sm md:text-lg">{day.day}</span>
+                          <ChevronDown
+                            className={`w-6 h-6 sm:w-8 sm:h-8 text-gray-400 transition-transform duration-300 group-hover:text-blue-600 flex-shrink-0 ${
+                              expandedDay === day.day ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+                        <AnimatePresence>
+                          {expandedDay === day.day && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3 }}
+                              className="bg-white"
+                            >
+                              <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
+                                {/* Day Image - Mobile Optimized */}
+                                {day.imageUrl && (
+                                  <div
+                                    className="relative h-48 sm:h-56 lg:h-64 rounded-xl sm:rounded-2xl overflow-hidden cursor-pointer group shadow-lg"
+                                    onClick={() => openImageGallery(day.imageUrl!)}
+                                  >
+                                    <Image
+                                      src={day.imageUrl || "/placeholder.svg"}
+                                      alt={`${t("day")} ${day.day}: ${getTranslatedText(day.title, currentLocale)}`}
+                                      fill
+                                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                                    <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4">
+                                      <p className="text-white font-bold text-sm sm:text-base lg:text-lg bg-black/50 backdrop-blur-sm rounded-lg px-3 sm:px-4 py-2">
+                                        {t("day")} {day.day} - {getTranslatedText(day.title, currentLocale)}
+                                      </p>
                                     </div>
-
-                                    {/* Day Title */}
-                                    <div className="flex-1">
-                                      <h4 className="font-black text-black text-lg md:text-xl lg:text-2xl mb-2">
-                                        {t("day")} {day.day}: {day.title}
-                                      </h4>
-                                      <p className="text-gray-600 text-sm md:text-base lg:text-lg">{day.description}</p>
+                                    <div className="absolute top-3 sm:top-4 right-3 sm:right-4">
+                                      <div className="bg-white/90 backdrop-blur-sm rounded-full p-2">
+                                        <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700" />
+                                      </div>
                                     </div>
-
-                                    {/* Expand Button */}
-                                    <button
-                                      onClick={() => toggleDay(day.day)}
-                                      className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-full border-2 border-gray-300 shadow-lg flex items-center justify-center hover:border-blue-500 hover:shadow-xl transition-all duration-300"
-                                    >
-                                      {expandedDay === day.day ? (
-                                        <ChevronUp className="w-5 h-5 md:w-6 md:h-6 text-gray-600" />
-                                      ) : (
-                                        <ChevronDown className="w-5 h-5 md:w-6 md:h-6 text-gray-600" />
-                                      )}
-                                    </button>
                                   </div>
-
-                                  {/* Expanded Content */}
-                                  {expandedDay === day.day && (
-                                    <div className="ml-12 md:ml-16 space-y-6 animate-in slide-in-from-top-2 duration-300">
-                                      {/* Activities */}
-                                      {day.activities && day.activities.length > 0 && (
-                                        <div className="bg-white rounded-xl p-6 md:p-8 border-2 border-blue-200 shadow-sm">
-                                          <h5 className="font-bold text-black text-base md:text-lg mb-4 flex items-center gap-2">
-                                            <span className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                                              <Check className="w-3 h-3 text-white" />
-                                            </span>
-                                            {t("activities")}
-                                          </h5>
-                                          <ul className="space-y-3">
-                                            {day.activities.map((activity, idx) => (
-                                              <li
-                                                key={idx}
-                                                className="flex items-start gap-3 text-gray-700 text-sm md:text-base lg:text-lg"
-                                              >
-                                                <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
-                                                {activity}
-                                              </li>
-                                            ))}
-                                          </ul>
+                                )}
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+                                  {/* Activities - Mobile First */}
+                                  {day.activities && day.activities.length > 0 && (
+                                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-blue-200">
+                                      <h4 className="font-bold text-gray-900 text-lg sm:text-xl mb-4 sm:mb-6 flex items-center gap-3">
+                                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                                          <Check className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                                         </div>
-                                      )}
-
-                                      {/* Route Map */}
-                                      {day.route && day.route.length > 0 && (
-                                        <div className="bg-white rounded-xl p-6 md:p-8 border-2 border-green-200 shadow-sm">
-                                          <h5 className="font-bold text-black text-base md:text-lg mb-6 flex items-center gap-2">
-                                            <span className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
-                                              <MapPin className="w-3 h-3 text-white" />
+                                        {t("activities")}
+                                      </h4>
+                                      <ul className="space-y-2 sm:space-y-3">
+                                        {day.activities.map((activity, idx) => (
+                                          <li key={idx} className="flex items-start gap-2 sm:gap-3 text-gray-700">
+                                            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
+                                            <span className="leading-relaxed text-sm sm:text-base">
+                                              {getTranslatedText(activity, currentLocale)}
                                             </span>
-                                            {t("route")} - {currentLocale === "es" ? "Mapa del Recorrido" : "Route Map"}
-                                          </h5>
-                                          <div className="relative">
-                                            {/* Route Timeline */}
-                                            <div className="absolute left-4 top-8 bottom-8 w-0.5 bg-gradient-to-b from-green-400 to-blue-400"></div>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
 
-                                            {day.route.map((point, idx) => (
-                                              <div key={idx} className="relative flex items-start gap-6 mb-6 last:mb-0">
-                                                {/* Route Point */}
-                                                <div className="relative z-10 w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center border-2 border-white shadow-md">
-                                                  <span className="text-white font-bold text-sm">{idx + 1}</span>
-                                                </div>
-
-                                                {/* Point Info */}
-                                                <div className="flex-1 bg-gray-50 rounded-lg p-4 border border-gray-200">
-                                                  <h6 className="font-bold text-black text-sm md:text-base lg:text-lg mb-2">
-                                                    📍 {point.location}
-                                                  </h6>
-                                                  {point.description && (
-                                                    <p className="text-gray-600 text-xs md:text-sm lg:text-base mb-3">
-                                                      {point.description}
-                                                    </p>
-                                                  )}
-                                                  {point.imageUrl && (
-                                                    <div
-                                                      className="relative h-24 md:h-32 rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                                                      onClick={() => openImageGallery(point.imageUrl!)}
-                                                    >
-                                                      <Image
-                                                        src={point.imageUrl || "/placeholder.svg"}
-                                                        alt={point.location}
-                                                        fill
-                                                        className="object-cover"
-                                                      />
-                                                    </div>
-                                                  )}
-                                                </div>
+                                  {/* Route Map - Mobile Optimized */}
+                                  {day.route && day.route.length > 0 && (
+                                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-green-200">
+                                      <h4 className="font-bold text-gray-900 text-lg sm:text-xl mb-4 sm:mb-6 flex items-center gap-3">
+                                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-green-600 rounded-full flex items-center justify-center">
+                                          <Route className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                                        </div>
+                                        {currentLocale === "es" ? "Ruta del Día" : "Day Route"}
+                                      </h4>
+                                      <div className="space-y-3 sm:space-y-4">
+                                        {day.route.map((point, idx) => (
+                                          <div key={idx} className="relative">
+                                            <div className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 bg-white rounded-lg sm:rounded-xl shadow-sm border border-green-200">
+                                              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-green-600 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xs sm:text-sm shadow-md flex-shrink-0">
+                                                {idx + 1}
                                               </div>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      {/* Meals */}
-                                      {day.meals && day.meals.length > 0 && (
-                                        <div className="bg-white rounded-xl p-6 md:p-8 border-2 border-orange-200 shadow-sm">
-                                          <h5 className="font-bold text-black text-base md:text-lg mb-4 flex items-center gap-2">
-                                            <span className="w-6 h-6 bg-orange-600 rounded-full flex items-center justify-center">
-                                              <span className="text-white text-sm">🍽️</span>
-                                            </span>
-                                            {t("meals")}
-                                          </h5>
-                                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                                            {day.meals.map((meal, idx) => (
-                                              <div
-                                                key={idx}
-                                                className="bg-orange-50 rounded-lg p-3 border border-orange-200"
-                                              >
-                                                <span className="text-orange-700 font-medium text-sm md:text-base">
-                                                  {meal}
-                                                </span>
+                                              <div className="flex-1 min-w-0">
+                                                <h5 className="font-semibold text-gray-900 mb-1 sm:mb-2 text-sm sm:text-base lg:text-lg">
+                                                  📍 {getTranslatedText(point.location, currentLocale)}
+                                                </h5>
+                                                {point.description && (
+                                                  <p className="text-gray-600 leading-relaxed text-xs sm:text-sm">
+                                                    {getTranslatedText(point.description, currentLocale)}
+                                                  </p>
+                                                )}
                                               </div>
-                                            ))}
+                                              {point.imageUrl && (
+                                                <div
+                                                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg sm:rounded-xl overflow-hidden cursor-pointer hover:shadow-lg transition-shadow flex-shrink-0"
+                                                  onClick={() => openImageGallery(point.imageUrl!)}
+                                                >
+                                                  <Image
+                                                    src={point.imageUrl || "/placeholder.svg"}
+                                                    alt={getTranslatedText(point.location, currentLocale)}
+                                                    width={80}
+                                                    height={80}
+                                                    className="object-cover w-full h-full hover:scale-110 transition-transform"
+                                                  />
+                                                </div>
+                                              )}
+                                            </div>
+                                            {/* Route connector - Hidden on mobile */}
+                                            {idx < day.route!.length - 1 && (
+                                              <div className="absolute left-7 sm:left-9 top-16 sm:top-20 w-0.5 h-4 sm:h-6 bg-gradient-to-b from-green-400 to-blue-400 hidden sm:block"></div>
+                                            )}
                                           </div>
-                                        </div>
-                                      )}
-
-                                      {/* Accommodation */}
-                                      {day.accommodation && (
-                                        <div className="bg-white rounded-xl p-6 md:p-8 border-2 border-purple-200 shadow-sm">
-                                          <h5 className="font-bold text-black text-base md:text-lg mb-4 flex items-center gap-2">
-                                            <span className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
-                                              <span className="text-white text-sm">🏨</span>
-                                            </span>
-                                            {t("accommodation")}
-                                          </h5>
-                                          <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                                            <p className="text-purple-700 font-medium text-sm md:text-base lg:text-lg">
-                                              {day.accommodation}
-                                            </p>
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      {/* Day Image */}
-                                      {day.imageUrl && (
-                                        <div
-                                          className="relative h-48 md:h-64 rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-opacity border-2 border-gray-200"
-                                          onClick={() => openImageGallery(day.imageUrl!)}
-                                        >
-                                          <Image
-                                            src={day.imageUrl || "/placeholder.svg"}
-                                            alt={`${t("day")} ${day.day}: ${day.title}`}
-                                            fill
-                                            className="object-cover"
-                                          />
-                                          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
-                                          <div className="absolute bottom-3 left-3 right-3">
-                                            <p className="text-white font-bold text-sm md:text-base bg-black bg-opacity-50 rounded px-3 py-2">
-                                              {t("day")} {day.day} - {day.title}
-                                            </p>
-                                          </div>
-                                        </div>
-                                      )}
+                                        ))}
+                                      </div>
                                     </div>
                                   )}
                                 </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center py-16 text-gray-500">
-                              <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <Route className="w-10 h-10 text-gray-400" />
-                              </div>
-                              <p className="text-xl font-medium mb-3">
-                                {currentLocale === "es" ? "Itinerario no disponible" : "Itinerary not available"}
-                              </p>
-                              <p className="text-base">
-                                {currentLocale === "es"
-                                  ? "El itinerario detallado se proporcionará al momento de la reserva"
-                                  : "Detailed itinerary will be provided upon booking"}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
 
-                  {activeTab === "includes" && (
-                    <div className="space-y-8 md:space-y-12">
-                      <div>
-                        <h3 className="text-xl md:text-2xl lg:text-3xl font-black text-black mb-4 md:mb-6 flex items-center gap-3 md:gap-4">
-                          <span className="w-8 h-8 md:w-10 md:h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                            <Check className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                          </span>
-                          {currentLocale === "es" ? "¿Qué incluye?" : "What's Included?"}
-                        </h3>
-                        <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl md:rounded-2xl p-6 md:p-8 border border-gray-200 md:border-2">
-                          {tour.includes && tour.includes.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                              {tour.includes.map((item: string, idx: number) => (
-                                <div
-                                  key={idx}
-                                  className="flex items-center gap-4 p-4 md:p-6 bg-white rounded-xl border border-green-200 shadow-sm hover:shadow-md transition-shadow"
-                                >
-                                  <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                                    <Check className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                                  </div>
-                                  <span className="text-gray-700 font-medium text-sm md:text-base lg:text-lg">
-                                    {item}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center py-12 text-gray-500">
-                              <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Check className="w-8 h-8 text-gray-400" />
-                              </div>
-                              <p className="text-lg font-medium">
-                                {currentLocale === "es" ? "Información no disponible" : "Information not available"}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* What's NOT Included */}
-                      <div>
-                        <h3 className="text-xl md:text-2xl lg:text-3xl font-black text-black mb-4 md:mb-6 flex items-center gap-3 md:gap-4">
-                          <span className="w-8 h-8 md:w-10 md:h-10 bg-red-600 rounded-full flex items-center justify-center">
-                            <X className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                          </span>
-                          {currentLocale === "es" ? "¿Qué NO incluye?" : "What's NOT Included?"}
-                        </h3>
-                        <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-xl md:rounded-2xl p-6 md:p-8 border border-gray-200 md:border-2">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                            {[
-                              currentLocale === "es" ? "Gastos personales" : "Personal expenses",
-                              currentLocale === "es" ? "Propinas" : "Tips",
-                              currentLocale === "es" ? "Bebidas alcohólicas" : "Alcoholic beverages",
-                              currentLocale === "es" ? "Seguro de viaje" : "Travel insurance",
-                            ].map((item: string, idx: number) => (
-                              <div
-                                key={idx}
-                                className="flex items-center gap-4 p-4 md:p-6 bg-white rounded-xl border border-red-200 shadow-sm"
-                              >
-                                <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-red-500 to-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
-                                  <X className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                                </div>
-                                <span className="text-gray-700 font-medium text-sm md:text-base lg:text-lg">
-                                  {item}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTab === "transport" && (
-                    <div className="space-y-8 md:space-y-12">
-                      <div>
-                        <h3 className="text-xl md:text-2xl lg:text-3xl font-black text-black mb-4 md:mb-6 flex items-center gap-3 md:gap-4">
-                          <span className="w-8 h-8 md:w-10 md:h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                            <Route className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                          </span>
-                          {t("transportOptions")}
-                        </h3>
-                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl md:rounded-2xl p-6 md:p-8 border border-gray-200 md:border-2">
-                          {tour.transportOptionIds && tour.transportOptionIds.length > 0 ? (
-                            <div className="space-y-6 md:space-y-8">
-                              {tour.transportOptionIds.map((transport) => (
-                                <div
-                                  key={transport._id}
-                                  className="bg-white rounded-xl p-6 md:p-8 border-2 border-gray-200 shadow-sm hover:shadow-md transition-shadow"
-                                >
-                                  <div className="flex items-center justify-between mb-6">
-                                    <div className="flex items-center gap-4">
-                                      <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
-                                        <span className="text-white text-xl md:text-2xl">🚐</span>
-                                      </div>
-                                      <div>
-                                        <h4 className="font-black text-black text-lg md:text-xl lg:text-2xl">
-                                          {transport.vehicle}
-                                        </h4>
-                                        <p className="text-gray-600 text-sm md:text-base lg:text-lg">
-                                          {currentLocale === "es" ? "Tipo" : "Type"}: {transport.type}
-                                        </p>
-                                      </div>
+                                {/* Additional Info - Mobile Grid */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                                  {/* Meals */}
+                                  {day.meals && day.meals.length > 0 && (
+                                    <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg sm:rounded-xl p-4 sm:p-6 border border-orange-200">
+                                      <h5 className="font-bold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
+                                        <Utensils className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
+                                        {currentLocale === "es" ? "Comidas" : "Meals"}
+                                      </h5>
+                                      <ul className="space-y-1 sm:space-y-2">
+                                        {day.meals.map((meal, idx) => (
+                                          <li
+                                            key={idx}
+                                            className="flex items-center gap-2 text-gray-700 text-sm sm:text-base"
+                                          >
+                                            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-orange-500 rounded-full"></span>
+                                            {meal}
+                                          </li>
+                                        ))}
+                                      </ul>
                                     </div>
-                                  </div>
+                                  )}
 
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                                      <div className="flex items-center gap-3 mb-2">
-                                        <Users className="w-5 h-5 text-blue-600" />
-                                        <span className="font-bold text-black text-sm md:text-base">
-                                          {currentLocale === "es" ? "Capacidad" : "Capacity"}
-                                        </span>
-                                      </div>
-                                      <p className="text-blue-700 font-medium text-sm md:text-base">
-                                        {currentLocale === "es" ? "Hasta 15 pasajeros" : "Up to 15 passengers"}
+                                  {/* Accommodation */}
+                                  {day.accommodation && (
+                                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg sm:rounded-xl p-4 sm:p-6 border border-purple-200">
+                                      <h5 className="font-bold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
+                                        <Bed className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+                                        {currentLocale === "es" ? "Alojamiento" : "Accommodation"}
+                                      </h5>
+                                      <p className="text-gray-700 leading-relaxed text-sm sm:text-base">
+                                        {day.accommodation}
                                       </p>
                                     </div>
-                                    <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                                      <div className="flex items-center gap-3 mb-2">
-                                        <Shield className="w-5 h-5 text-green-600" />
-                                        <span className="font-bold text-black text-sm md:text-base">
-                                          {currentLocale === "es" ? "Seguridad" : "Safety"}
-                                        </span>
-                                      </div>
-                                      <p className="text-green-700 font-medium text-sm md:text-base">
-                                        {currentLocale === "es" ? "Totalmente asegurado" : "Fully insured"}
-                                      </p>
-                                    </div>
-                                    <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                                      <div className="flex items-center gap-3 mb-2">
-                                        <Award className="w-5 h-5 text-purple-600" />
-                                        <span className="font-bold text-black text-sm md:text-base">
-                                          {currentLocale === "es" ? "Comodidad" : "Comfort"}
-                                        </span>
-                                      </div>
-                                      <p className="text-purple-700 font-medium text-sm md:text-base">
-                                        {currentLocale === "es" ? "Aire acondicionado" : "Air conditioning"}
-                                      </p>
-                                    </div>
-                                  </div>
+                                  )}
                                 </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center py-16 text-gray-500">
-                              <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <Route className="w-10 h-10 text-gray-400" />
                               </div>
-                              <p className="text-xl font-medium mb-3">
-                                {currentLocale === "es" ? "Transporte no especificado" : "Transport not specified"}
-                              </p>
-                              <p className="text-base">
-                                {currentLocale === "es"
-                                  ? "Los detalles del transporte se proporcionarán al momento de la reserva"
-                                  : "Transport details will be provided upon booking"}
-                              </p>
-                            </div>
+                            </motion.div>
                           )}
-                        </div>
+                        </AnimatePresence>
                       </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* What's Included - Mobile Optimized */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-10 shadow-xl"
+              >
+                <div className="text-center mb-8 sm:mb-10">
+                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+                    {currentLocale === "es" ? "¿Qué incluye?" : "What's Included?"}
+                  </h2>
+                  <p className="text-gray-600 text-base sm:text-lg">
+                    {currentLocale === "es"
+                      ? "Todo lo que necesitas para una experiencia completa"
+                      : "Everything you need for a complete experience"}
+                  </p>
                 </div>
-              </div>
+                {tour.includes && tour.includes.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                    {tour.includes.map((item: string | TranslatedText, idx: number) => (
+                      <motion.div
+                        key={idx}
+                        initial={{ opacity: 0, x: -20 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: idx * 0.1 }}
+                        className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl sm:rounded-2xl border border-gray-100 hover:shadow-md transition-shadow"
+                      >
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Check className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                        </div>
+                        <span className="text-gray-700 font-medium text-sm sm:text-base lg:text-lg">
+                          {getTranslatedText(item, currentLocale)}
+                        </span>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 sm:py-12 text-gray-500">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Check className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
+                    </div>
+                    <p className="text-base sm:text-lg font-medium">
+                      {currentLocale === "es" ? "Información no disponible" : "Information not available"}
+                    </p>
+                  </div>
+                )}
+              </motion.div>
             </div>
 
-            {/* Right Sidebar */}
-            <div className="lg:col-span-1">
-              <div className="space-y-6 md:space-y-8">
-                {/* Trust & Safety */}
-                <div className="bg-white rounded-2xl md:rounded-3xl border-2 md:border-4 border-black p-6 md:p-8 shadow-xl">
-                  <h3 className="text-lg md:text-xl lg:text-2xl font-black text-black mb-6 md:mb-8 flex items-center gap-3">
-                    <Shield className="w-6 h-6 md:w-8 md:h-8 text-blue-600" />
-                    {currentLocale === "es" ? "Seguridad Primero" : "Safety First"}
-                  </h3>
-                  <div className="space-y-4 md:space-y-6">
-                    <div className="flex items-center gap-4 p-4 bg-green-50 rounded-xl border border-green-200">
-                      <div className="w-10 h-10 md:w-12 md:h-12 bg-green-600 rounded-full flex items-center justify-center">
-                        <Check className="w-5 h-5 md:w-6 md:h-6 text-white" />
-                      </div>
-                      <div>
-                        <div className="font-bold text-black text-sm md:text-base">
-                          {currentLocale === "es" ? "Guías Certificados" : "Certified Guides"}
-                        </div>
-                        <div className="text-xs md:text-sm text-gray-600">
-                          {currentLocale === "es" ? "Experiencia profesional" : "Professional experience"}
-                        </div>
+            {/* Right Sidebar - Mobile Optimized */}
+            <div className="lg:col-span-1 space-y-6 sm:space-y-8">
+              {/* Sticky Booking Card - Mobile First */}
+              <div className="lg:sticky lg:top-8 bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-xl border border-gray-100">
+                <div className="text-center mb-6 sm:mb-8 p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-green-50 rounded-xl sm:rounded-2xl">
+                  <div className="text-3xl sm:text-4xl font-black text-blue-600 mb-2">S/{tour.price}</div>
+                  <p className="text-gray-600 text-base sm:text-lg">{t("perPerson")}</p>
+                  {tour.originalPrice && (
+                    <div className="mt-3">
+                      <span className="text-base sm:text-lg text-gray-500 line-through">S/{tour.originalPrice}</span>
+                      <div className="bg-green-100 text-green-700 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold inline-block ml-2">
+                        -{Math.round(((tour.originalPrice - tour.price) / tour.originalPrice) * 100)}%
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                      <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-600 rounded-full flex items-center justify-center">
-                        <Shield className="w-5 h-5 md:w-6 md:h-6 text-white" />
-                      </div>
-                      <div>
-                        <div className="font-bold text-black text-sm md:text-base">
-                          {currentLocale === "es" ? "Seguro incluido" : "Insurance Included"}
-                        </div>
-                        <div className="text-xs md:text-sm text-gray-600">
-                          {currentLocale === "es" ? "Cobertura completa" : "Full coverage"}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 p-4 bg-yellow-50 rounded-xl border border-yellow-200">
-                      <div className="w-10 h-10 md:w-12 md:h-12 bg-yellow-600 rounded-full flex items-center justify-center">
-                        <Award className="w-5 h-5 md:w-6 md:h-6 text-white" />
-                      </div>
-                      <div>
-                        <div className="font-bold text-black text-sm md:text-base">
-                          {currentLocale === "es" ? "Garantía de calidad" : "Quality Guarantee"}
-                        </div>
-                        <div className="text-xs md:text-sm text-gray-600">
-                          {currentLocale === "es" ? "Satisfacción garantizada" : "Satisfaction guaranteed"}
-                        </div>
-                      </div>
-                    </div>
+                  )}
+                </div>
+                <Button
+                  onClick={openBookingModal}
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 sm:py-4 text-base sm:text-lg rounded-xl mb-4 sm:mb-6 shadow-lg hover:shadow-xl transition-all"
+                >
+                  🎯 {t("bookNow")}
+                </Button>
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6 sm:mb-8">
+                  <Button
+                    onClick={handleWhatsAppContact}
+                    className="p-3 sm:p-4 bg-green-50 hover:bg-green-100 border border-green-200 text-green-600 hover:text-green-700"
+                  >
+                    <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </Button>
+                  <Button className="p-3 sm:p-4 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-600 hover:text-blue-700">
+                    <Phone className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </Button>
+                  <Button className="p-3 sm:p-4 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-600 hover:text-purple-700">
+                    <Mail className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </Button>
+                </div>
+                <div className="space-y-3 sm:space-y-4 text-center text-xs sm:text-sm text-gray-600">
+                  <div className="flex items-center justify-center gap-2 p-2 sm:p-3 bg-green-50 rounded-lg">
+                    <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                    <span className="font-medium">100% Seguro</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 p-2 sm:p-3 bg-blue-50 rounded-lg">
+                    <Check className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                    <span className="font-medium">Cancelación Gratuita</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 p-2 sm:p-3 bg-purple-50 rounded-lg">
+                    <Award className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+                    <span className="font-medium">24/7 {t("contact")}</span>
                   </div>
                 </div>
+              </div>
 
-                {/* Need Help */}
-                <div className="bg-gradient-to-r from-blue-600 to-green-600 rounded-2xl md:rounded-3xl border-2 md:border-4 border-black p-6 md:p-8 text-white shadow-xl">
-                  <h3 className="text-lg md:text-xl lg:text-2xl font-black mb-6 md:mb-8 flex items-center gap-3">
-                    <MessageCircle className="w-6 h-6 md:w-8 md:h-8" />
-                    {currentLocale === "es" ? "¿Necesitas ayuda?" : "Need Help?"}
-                  </h3>
-                  <div className="space-y-4 md:space-y-6">
-                    <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 md:p-6">
-                      <div className="flex items-center gap-3 mb-3">
-                        <MessageCircle className="w-5 h-5 md:w-6 md:h-6" />
-                        <span className="font-bold text-sm md:text-base">
-                          {currentLocale === "es" ? "Soporte WhatsApp" : "WhatsApp Support"}
-                        </span>
-                      </div>
-                      <p className="text-xs md:text-sm mb-4 text-white/90">
-                        {currentLocale === "es" ? "Respuesta instantánea" : "Instant response"}
-                      </p>
-                      <Button className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 md:py-3 rounded-lg text-sm md:text-base">
-                        {currentLocale === "es" ? "Chatear ahora" : "Chat Now"}
-                      </Button>
-                    </div>
-                    <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 md:p-6">
-                      <div className="flex items-center gap-3 mb-3">
-                        <Phone className="w-5 h-5 md:w-6 md:h-6" />
-                        <span className="font-bold text-sm md:text-base">
-                          {currentLocale === "es" ? "Llámanos" : "Call Us"}
-                        </span>
-                      </div>
-                      <p className="text-xs md:text-sm mb-4 text-white/90">
-                        {currentLocale === "es" ? "Disponible 24/7" : "Available 24/7"}
-                      </p>
-                      <Button
-                        variant="outline"
-                        className="w-full border-2 border-white text-white hover:bg-white hover:text-blue-600 font-bold py-2 md:py-3 rounded-lg text-sm md:text-base bg-transparent"
-                      >
-                        {currentLocale === "es" ? "Llamar ahora" : "Call Now"}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+              {/* Help Section - Mobile Optimized */}
+              <div className="bg-gradient-to-br from-blue-600 to-green-600 rounded-2xl sm:rounded-3xl p-6 sm:p-8 text-white shadow-xl">
+                <h3 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-3">
+                  <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8" />
+                  {currentLocale === "es" ? "¿Necesitas ayuda?" : "Need Help?"}
+                </h3>
+                <p className="text-white/90 mb-4 sm:mb-6 text-base sm:text-lg leading-relaxed">
+                  {currentLocale === "es"
+                    ? "Nuestro equipo de expertos está disponible 24/7 para ayudarte a planificar tu aventura perfecta"
+                    : "Our expert team is available 24/7 to help you plan your perfect adventure"}
+                </p>
+                <Button
+                  onClick={handleWhatsAppContact}
+                  className="w-full bg-white text-blue-600 hover:bg-gray-100 font-bold py-3 sm:py-4 text-base sm:text-lg rounded-xl shadow-lg"
+                >
+                  {currentLocale === "es" ? "Contactar ahora" : "Contact Now"}
+                </Button>
               </div>
             </div>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
     </div>
   )
 }

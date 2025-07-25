@@ -23,21 +23,17 @@ export const uploadApi = {
     try {
       const formData = new FormData()
       formData.append("file", file)
-
       const response = await api.post("/uploads", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       })
-
       return response.data
     } catch (error) {
       console.error("Error uploading image:", error)
-
       // Manejo de errores tipado
       if (error instanceof AxiosError) {
         const errorData = error.response?.data as ApiError | undefined
-
         if (errorData?.message) {
           throw new Error(errorData.message)
         } else if (error.response?.status === 400) {
@@ -48,7 +44,6 @@ export const uploadApi = {
           throw new Error("Error al subir la imagen.")
         }
       }
-
       throw new Error("No se pudo subir la imagen. Intenta nuevamente.")
     }
   },
@@ -59,16 +54,13 @@ export const uploadApi = {
       if (!imageId || imageId.trim() === "") {
         throw new Error("ID de imagen inválido")
       }
-
       const response = await api.delete(`/uploads/${imageId}`)
       return response.data
     } catch (error) {
       console.error("Error deleting image:", error)
-
       // Manejo de errores tipado
       if (error instanceof AxiosError) {
         const errorData = error.response?.data as ApiError | undefined
-
         if (error.response?.status === 404) {
           // Si la imagen no existe, considerarlo como éxito
           console.warn(`Imagen ${imageId} no encontrada, posiblemente ya eliminada`)
@@ -85,7 +77,6 @@ export const uploadApi = {
           throw new Error("Error al eliminar la imagen.")
         }
       }
-
       throw new Error("No se pudo eliminar la imagen. Intenta nuevamente.")
     }
   },
