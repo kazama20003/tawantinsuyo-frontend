@@ -58,14 +58,14 @@ export default function manifest(): MetadataRoute.Manifest {
 
     screenshots: [
       {
-        src: "/screenshot-wide.png",
+        src: "/screenshot/image.png",
         sizes: "1280x720",
         type: "image/png",
         form_factor: "wide",
         label: "Tawantinsuyo Peru - Vista de escritorio",
       },
       {
-        src: "/screenshot-narrow.png",
+        src: "/screenshot/image.png",
         sizes: "375x812",
         type: "image/png",
         form_factor: "narrow",

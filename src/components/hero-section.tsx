@@ -26,13 +26,13 @@ export default function HeroSection() {
       {/* Background Video */}
       <video autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover">
         <source
-          src="https://res.cloudinary.com/dlzq3rsot/video/upload/v1750527252/128688-742066271_small_qqsnpx.mp4"
+          src="https://res.cloudinary.com/dlzq3rsot/video/upload/v1753464795/V%C3%ADdeo_sin_t%C3%ADtulo_Hecho_con_Clipchamp_2_xahyej.mp4"
           type="video/mp4"
         />
       </video>
 
       {/* Video Overlay */}
-      <div className="absolute inset-0 bg-black/40"></div>
+      <div className="absolute inset-0"></div>
 
       {/* Content */}
       <div className="relative z-10 flex items-center justify-center h-full">

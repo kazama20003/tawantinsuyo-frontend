@@ -63,7 +63,7 @@ export const metadata: Metadata = {
       "Descubre el Perú auténtico con Tawantinsuyo Peru. Tours únicos a Machu Picchu, Cusco, Valle Sagrado y más.",
     images: [
       {
-        url: "/og-image.jpg",
+        url: "/screenshot/image.png",
         width: 1200,
         height: 630,
         alt: "Tawantinsuyo Peru - Tours Auténticos",
