@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useRef } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -45,7 +44,6 @@ export function ImageUpload({ value, imageId, onChange, onRemove, disabled, clas
 
     try {
       setUploading(true)
-
       // Delete previous image if exists
       if (imageId) {
         try {
@@ -58,7 +56,6 @@ export function ImageUpload({ value, imageId, onChange, onRemove, disabled, clas
 
       const response = await uploadApi.uploadImage(file)
       onChange(response.url, response.publicId)
-
       toast.success("Imagen subida", {
         description: "La imagen se ha subido correctamente.",
       })

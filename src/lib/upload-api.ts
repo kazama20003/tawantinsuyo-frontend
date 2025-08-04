@@ -47,14 +47,20 @@ export const uploadApi = {
       throw new Error("No se pudo subir la imagen. Intenta nuevamente.")
     }
   },
-
   // Eliminar imagen
   deleteImage: async (imageId: string): Promise<DeleteResponse> => {
     try {
       if (!imageId || imageId.trim() === "") {
         throw new Error("ID de imagen inválido")
       }
-      const response = await api.delete(`/uploads/${imageId}`)
+      // Corrected: Assuming imageId is already in the format "uploads/..."
+      // If your backend expects just the ID, you might need to extract it here.
+      // For example, if imageId is "uploads/abc-123", and backend expects "abc-123":
+      // const actualImageId = imageId.split('/').pop();
+      // const response = await api.delete(`/uploads/${actualImageId}`);
+      // Based on your error "uploads/uploads/", the current approach of passing the full path seems to be what's causing the double 'uploads'.
+      // So, we use the imageId directly as the path.
+      const response = await api.delete(`/${imageId}`)
       return response.data
     } catch (error) {
       console.error("Error deleting image:", error)

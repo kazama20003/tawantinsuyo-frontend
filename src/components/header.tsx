@@ -61,7 +61,6 @@ export default function Header() {
       setCartItemsCount(0)
       return
     }
-
     try {
       const response = await api.get("/cart")
       if (response.data?.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
@@ -88,10 +87,9 @@ export default function Header() {
         setIsAuthenticated(false)
       }
     } catch (error) {
-        console.error("Error checking auth status:", error);
-        setIsAuthenticated(false);
-      }
-
+      console.error("Error checking auth status:", error)
+      setIsAuthenticated(false)
+    }
   }, [])
 
   // Navigation items with submenus
@@ -267,7 +265,6 @@ export default function Header() {
       }, 2000)
       return
     }
-
     // Si está autenticado, ir al carrito
     router.push("/cart")
   }, [isAuthenticated, currentLocale, router])
@@ -464,7 +461,6 @@ export default function Header() {
                 <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
                   <Search className="w-4 h-4 sm:w-5 sm:h-5 cursor-pointer hover:text-blue-600 transition-colors" />
                 </motion.div>
-
                 {/* Shopping Cart with Badge */}
                 <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }} className="relative">
                   <ShoppingCart

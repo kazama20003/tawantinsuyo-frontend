@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
+
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -25,6 +26,7 @@ import { Switch } from "@/components/ui/switch"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { ImageUpload } from "@/components/ui/image-upload"
+
 import {
   Plus,
   Minus,
@@ -43,6 +45,7 @@ import {
   Crown,
 } from "lucide-react"
 import { toast } from "sonner"
+
 import { toursApi } from "@/lib/tours-api"
 import { transportApi } from "@/lib/transport-api"
 import type { CreateTourDto, TransportOption } from "@/types/tour"
@@ -115,8 +118,8 @@ const tourSchema = z.object({
           .min(1, "Debe tener al menos una actividad"),
         meals: z.array(z.string()).optional(),
         accommodation: z.string().optional(),
-        imageId: z.string().optional(),
-        imageUrl: z.string().optional(),
+        imageId: z.string().optional(), // Added for itinerary day image
+        imageUrl: z.string().optional(), // Added for itinerary day image
         route: z
           .array(
             z.object({
@@ -130,8 +133,8 @@ const tourSchema = z.object({
                   en: z.string().optional(),
                 })
                 .optional(),
-              imageId: z.string().optional(),
-              imageUrl: z.string().optional(),
+              imageId: z.string().optional(), // Added for route point image
+              imageUrl: z.string().optional(), // Added for route point image
             }),
           )
           .min(1, "Debe tener al menos un punto de ruta"),
@@ -209,14 +212,14 @@ export default function NewTourPage() {
           activities: [{ es: "", en: "" }], // ✅ Ahora multilingüe
           meals: [],
           accommodation: "",
-          imageId: "",
-          imageUrl: "",
+          imageId: "", // Default for itinerary day image
+          imageUrl: "", // Default for itinerary day image
           route: [
             {
               location: { es: "", en: "" },
               description: { es: "", en: "" },
-              imageId: "",
-              imageUrl: "",
+              imageId: "", // Default for route point image
+              imageUrl: "", // Default for route point image
             },
           ],
         },
@@ -260,7 +263,6 @@ export default function NewTourPage() {
         setLoadingTransports(false)
       }
     }
-
     loadTransports()
   }, [])
 
@@ -318,7 +320,6 @@ export default function NewTourPage() {
     control: form.control,
     name: "conditions",
   })
-
 
   // Watch title changes to auto-generate slug
   const titleEs = form.watch("title.es")
@@ -394,17 +395,13 @@ export default function NewTourPage() {
   const onSubmit = async (data: TourFormData) => {
     try {
       setLoading(true)
-
       const tourData: CreateTourDto = {
         ...data,
       }
-
       await toursApi.create(tourData)
-
       toast.success("Tour creado", {
         description: "El tour se ha creado exitosamente.",
       })
-
       router.push("/dashboard/tours")
     } catch (error) {
       console.error("Error creating tour:", error)
@@ -439,7 +436,6 @@ export default function NewTourPage() {
           </Breadcrumb>
         </div>
       </header>
-
       <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
         <div className="flex items-center justify-between">
           <div>
@@ -453,7 +449,6 @@ export default function NewTourPage() {
             Volver
           </Button>
         </div>
-
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* Información Básica */}
@@ -494,7 +489,6 @@ export default function NewTourPage() {
                     )}
                   />
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -523,7 +517,6 @@ export default function NewTourPage() {
                     )}
                   />
                 </div>
-
                 {/* Slug automático (solo lectura) */}
                 <FormField
                   control={form.control}
@@ -546,7 +539,6 @@ export default function NewTourPage() {
                     </FormItem>
                   )}
                 />
-
                 <div>
                   <Label>Imagen Principal *</Label>
                   <FormField
@@ -640,7 +632,6 @@ export default function NewTourPage() {
                     )}
                   />
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -686,7 +677,6 @@ export default function NewTourPage() {
                     )}
                   />
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -715,7 +705,6 @@ export default function NewTourPage() {
                     )}
                   />
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <FormField
                     control={form.control}
@@ -794,7 +783,6 @@ export default function NewTourPage() {
                     )}
                   />
                 </div>
-
                 <FormField
                   control={form.control}
                   name="featured"
@@ -855,7 +843,6 @@ export default function NewTourPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {filteredTransports.map((transport) => {
                             const isSelected = field.value?.includes(transport._id) || false
-
                             return (
                               <Card
                                 key={transport._id}
@@ -1019,7 +1006,6 @@ export default function NewTourPage() {
                           )}
                         />
                       </div>
-
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
@@ -1042,6 +1028,35 @@ export default function NewTourPage() {
                               <FormLabel>Descripción (Inglés)</FormLabel>
                               <FormControl>
                                 <Textarea placeholder="Detailed day description..." {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {/* Image Upload for Itinerary Day */}
+                      <div>
+                        <Label>Imagen del Día</Label>
+                        <FormField
+                          control={form.control}
+                          name={`itinerary.${dayIndex}.imageUrl`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <ImageUpload
+                                  value={field.value || ""}
+                                  imageId={form.getValues(`itinerary.${dayIndex}.imageId`) || ""}
+                                  onChange={(url, imageId) => {
+                                    field.onChange(url)
+                                    form.setValue(`itinerary.${dayIndex}.imageId`, imageId)
+                                  }}
+                                  onRemove={() => {
+                                    field.onChange("")
+                                    form.setValue(`itinerary.${dayIndex}.imageId`, "")
+                                  }}
+                                  disabled={loading}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -1174,6 +1189,37 @@ export default function NewTourPage() {
                                       <FormLabel>Descripción (Inglés)</FormLabel>
                                       <FormControl>
                                         <Textarea placeholder="Point description..." {...field} />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+
+                              {/* Image Upload for Route Point */}
+                              <div>
+                                <Label>Imagen del Punto</Label>
+                                <FormField
+                                  control={form.control}
+                                  name={`itinerary.${dayIndex}.route.${routeIndex}.imageUrl`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormControl>
+                                        <ImageUpload
+                                          value={field.value || ""}
+                                          imageId={
+                                            form.getValues(`itinerary.${dayIndex}.route.${routeIndex}.imageId`) || ""
+                                          }
+                                          onChange={(url, imageId) => {
+                                            field.onChange(url)
+                                            form.setValue(`itinerary.${dayIndex}.route.${routeIndex}.imageId`, imageId)
+                                          }}
+                                          onRemove={() => {
+                                            field.onChange("")
+                                            form.setValue(`itinerary.${dayIndex}.route.${routeIndex}.imageId`, "")
+                                          }}
+                                          disabled={loading}
+                                        />
                                       </FormControl>
                                       <FormMessage />
                                     </FormItem>
