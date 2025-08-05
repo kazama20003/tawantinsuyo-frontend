@@ -34,7 +34,7 @@ const dailyTours: DailyTour[] = [
       es: "Aventura de rafting en el río Chili, cerca de Arequipa, con rápidos emocionantes y paisajes volcánicos únicos.",
       en: "Rafting adventure on the Chili River, near Arequipa, with exciting rapids and unique volcanic landscapes.",
     },
-    image: "/rafting-rio-chili.png",
+    image: "https://res.cloudinary.com/dlzq3rsot/image/upload/v1754413518/rafting_tour_arequipa_w0xtij.jpg",
     times: ["8:00 AM", "11:00 AM"],
     priceRange: { es: "S/ 70 - S/ 90", en: "S/ 70 - S/ 90" },
     highlights: {
@@ -54,7 +54,7 @@ const dailyTours: DailyTour[] = [
       es: "Recorrido en cuatrimotos por paisajes desérticos y rurales, una experiencia llena de adrenalina y vistas panorámicas.",
       en: "ATV tour through desert and rural landscapes, an adrenaline-filled experience with panoramic views.",
     },
-    image: "/atv-tour.png",
+    image: "https://res.cloudinary.com/dlzq3rsot/image/upload/v1754413545/tour-de-cuatrimotos-en-arequipa-4_dot7gx.jpg",
     times: ["8:00 AM", "11:00 AM", "2:00 PM"],
     priceRange: { es: "S/ 95 - S/ 115", en: "S/ 95 - S/ 115" },
     highlights: {
@@ -74,7 +74,7 @@ const dailyTours: DailyTour[] = [
       es: "Explora las canteras de sillar y el arte de los talladores de piedra, un viaje cultural por la arquitectura de Arequipa.",
       en: "Explore the sillar quarries and the art of stone carvers, a cultural journey through Arequipa's architecture.",
     },
-    image: "/sillar-route.png",
+    image: "https://res.cloudinary.com/dlzq3rsot/image/upload/v1754337301/uploads/xazdd9gs9lda44y48xvc.jpg",
     times: ["9:00 AM", "2:00 PM"],
     priceRange: { es: "S/ 40 - S/ 60", en: "S/ 40 - S/ 60" },
     highlights: {
