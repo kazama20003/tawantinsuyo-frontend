@@ -9,7 +9,6 @@ import type { Locale } from "@/lib/i18n"
 
 export default function GuideSection() {
   const pathname = usePathname()
-
   // Get current locale from pathname
   const currentLocale: Locale = pathname.startsWith("/en") ? "en" : "es"
 
@@ -80,9 +79,11 @@ export default function GuideSection() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
-            className="relative order-2 lg:order-1"
+            className="relative order-2 lg:order-1 overflow-hidden" // Added overflow-hidden here
           >
-            <div className="relative max-w-md mx-auto lg:max-w-none">
+            <div className="relative mx-auto lg:max-w-none">
+              {" "}
+              {/* Removed max-w-md */}
               {/* Guide Book Mockup */}
               <motion.div
                 whileHover={{ scale: 1.02, rotate: 0 }}

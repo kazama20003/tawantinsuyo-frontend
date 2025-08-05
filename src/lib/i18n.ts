@@ -6,7 +6,7 @@ export const translations = {
     home: "Inicio",
     tours: "Tours",
     destinations: "Destinos",
-    itineraries: "Itinerarios",
+    itineraries: "Salidas Diarias",
     aboutUs: "Nosotros",
     contact: "Contacto",
 
@@ -151,7 +151,7 @@ export const translations = {
     home: "Home",
     tours: "Tours",
     destinations: "Destinations",
-    itineraries: "Itineraries",
+    itineraries: "Daily Tours",
     aboutUs: "About Us",
     contact: "Contact",
 

@@ -6,7 +6,6 @@ import type { Locale } from "@/lib/i18n"
 
 export default function ExperienceSection() {
   const pathname = usePathname()
-
   // Get current locale from pathname
   const currentLocale: Locale = pathname.startsWith("/en") ? "en" : "es"
 

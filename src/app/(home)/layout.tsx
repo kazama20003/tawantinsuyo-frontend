@@ -8,10 +8,10 @@ export default function HomeLayout({
   children: React.ReactNode
 }) {
   return (
-    <>
+    <div className="relative min-h-screen">
       <Header />
-      <main>{children}</main>
+      <main className="relative z-10">{children}</main>
       <Footer />
-    </>
+    </div>
   )
 }

@@ -43,7 +43,7 @@ export function middleware(request: NextRequest) {
         if (user.role === "admin") {
           return NextResponse.next()
         } else {
-          return NextResponse.redirect(`${origin}/users`)
+          return NextResponse.redirect(`${origin}/cart`)
         }
       }
 

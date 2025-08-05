@@ -26,7 +26,6 @@ import { api } from "@/lib/axiosInstance"
 
 // Type for translation function
 type TranslationFunction = (key: keyof typeof import("@/lib/i18n").translations.es) => string
-
 // Type for localized link function
 type LocalizedLinkFunction = (path: string) => string
 
@@ -38,6 +37,7 @@ export default function Header() {
   const [isLanguageOpen, setIsLanguageOpen] = useState(false)
   const [cartItemsCount, setCartItemsCount] = useState(0)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+
   const pathname = usePathname()
   const router = useRouter()
 
@@ -123,7 +123,7 @@ export default function Header() {
     },
     {
       label: t("itineraries"),
-      href: getLocalizedLink("/itineraries"),
+      href: getLocalizedLink("/daily-tours"),
       submenu: [
         { title: "7 días - Clásico", description: "Lo esencial del Perú en una semana" },
         { title: "14 días - Completo", description: "Experiencia completa por todo el país" },
@@ -275,303 +275,303 @@ export default function Header() {
         initial={{ y: 0 }}
         animate={{ y: scrolled ? 0 : -24 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className="fixed top-0 left-0 w-full z-50 flex justify-center"
+        className="fixed top-0 left-0 w-full z-50 overflow-hidden"
       >
-        <motion.div
-          animate={{
-            paddingTop: scrolled ? "1rem" : "2rem",
-            paddingBottom: scrolled ? "1rem" : activeMenu !== null ? "6rem" : "2rem",
-          }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-          className="w-full max-w-[1400px] bg-white rounded-b-[60px] shadow-md overflow-visible mx-2 sm:mx-3 md:mx-4 lg:mx-6 px-3 sm:px-4 md:px-6 lg:px-8 xl:px-12"
-          onMouseLeave={handleMenuLeave}
-        >
-          {/* Top bar - Social media and contact info */}
-          <AnimatePresence>
-            {!scrolled && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3 }}
-                className="hidden lg:flex justify-between items-center text-sm text-blue-600 mb-6 pb-4 border-b border-blue-100"
-              >
-                <div className="flex items-center gap-6">
-                  <span className="text-xs hover:text-blue-800 transition-colors cursor-pointer">Travel trade</span>
-                  <span className="text-xs hover:text-blue-800 transition-colors cursor-pointer">Media</span>
-                  <span className="text-xs hover:text-blue-800 transition-colors cursor-pointer">Mice</span>
-                  <div className="flex items-center gap-3 ml-6">
-                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                      <Facebook className="w-5 h-5 hover:text-blue-800 transition-colors cursor-pointer" />
-                    </motion.div>
-                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                      <Instagram className="w-5 h-5 hover:text-blue-800 transition-colors cursor-pointer" />
-                    </motion.div>
-                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                      <TikTokIcon className="w-5 h-5 hover:text-blue-800 transition-colors cursor-pointer" />
-                    </motion.div>
-                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                      <Youtube className="w-5 h-5 hover:text-blue-800 transition-colors cursor-pointer" />
-                    </motion.div>
-                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                      <Linkedin className="w-5 h-5 hover:text-blue-800 transition-colors cursor-pointer" />
-                    </motion.div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-6">
-                  <span className="hover:text-blue-800 transition-colors cursor-pointer">{t("certifiedAgency")}</span>
-                  <span className="hover:text-blue-800 transition-colors cursor-pointer flex items-center gap-1">
-                    <Phone className="w-4 h-4" />
-                    +51 984 123 456
-                  </span>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Main row: logo + nav + icons */}
-          <div className="flex justify-between items-center gap-2 sm:gap-4">
-            {/* Logo */}
-            <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-2 sm:gap-3 flex-shrink-0 min-w-0">
-              <Link href={getLocalizedLink("/")} className="flex items-center gap-2 sm:gap-3">
-                <div className="relative w-12 h-12 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 flex-shrink-0">
-                  <Image
-                    src="https://res.cloudinary.com/dlzq3rsot/image/upload/v1750535406/Imagen_de_WhatsApp_2025-06-02_a_las_12.51.49_e3f17722_uebdkn.jpg"
-                    alt="Tawantinsuyo Peru Logo"
-                    fill
-                    className="object-contain rounded-full"
-                    priority
-                  />
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="font-semibold text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl text-blue-600 leading-tight whitespace-nowrap">
-                    Tawantinsuyo Peru
-                  </span>
-                </div>
-              </Link>
-            </motion.div>
-
-            {/* Navigation */}
-            <nav className="flex-1 hidden lg:flex justify-center gap-8 xl:gap-10">
-              {navItems.map((item, i) => (
-                <div key={i} className="group relative" onMouseEnter={() => handleMenuEnter(i)}>
-                  <Link
-                    href={item.href}
-                    className={clsx(
-                      "flex items-center text-sm font-medium gap-1 transition-colors duration-200 hover:text-blue-600",
-                      activeMenu === i || isActivePage(item.href) ? "text-blue-600" : "text-gray-900",
-                    )}
+        <div className="w-full flex justify-center px-2 sm:px-3 md:px-4 lg:px-6">
+          <motion.div
+            animate={{
+              paddingTop: scrolled ? "1rem" : "2rem",
+              paddingBottom: scrolled ? "1rem" : activeMenu !== null ? "6rem" : "2rem",
+            }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="w-full max-w-[1400px] bg-white rounded-b-[60px] shadow-md overflow-visible"
+            onMouseLeave={handleMenuLeave}
+          >
+            <div className="px-3 sm:px-4 md:px-6 lg:px-8 xl:px-12">
+              {/* Top bar - Social media and contact info */}
+              <AnimatePresence>
+                {!scrolled && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="hidden lg:flex justify-between items-center text-sm text-blue-600 mb-6 pb-4 border-b border-blue-100"
                   >
-                    {item.label}
-                    <motion.div animate={{ rotate: activeMenu === i ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                      <ChevronDown size={14} />
-                    </motion.div>
-                  </Link>
-                </div>
-              ))}
-            </nav>
-
-            {/* Icons */}
-            <div className="flex items-center gap-1 sm:gap-2 md:gap-3 text-gray-700 text-sm flex-shrink-0 ml-auto">
-              {/* Social links - only on xl screens */}
-              <div className="hidden xl:flex gap-4 text-xs text-gray-400 pr-4 border-r border-gray-300">
-                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                  <Link href="#" className="hover:text-blue-600 transition-colors">
-                    <Facebook className="w-4 h-4" />
-                  </Link>
-                </motion.div>
-                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                  <Link href="#" className="hover:text-blue-600 transition-colors">
-                    <Instagram className="w-4 h-4" />
-                  </Link>
-                </motion.div>
-                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                  <Link href="#" className="hover:text-blue-600 transition-colors">
-                    <TikTokIcon className="w-4 h-4" />
-                  </Link>
-                </motion.div>
-                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                  <Link href="#" className="hover:text-blue-600 transition-colors">
-                    <Youtube className="w-4 h-4" />
-                  </Link>
-                </motion.div>
-              </div>
-
-              {/* Login */}
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Link
-                  href={getLocalizedLink("/login")}
-                  className="hidden md:flex items-center gap-1 hover:text-blue-600 transition-colors"
-                >
-                  <User className="w-4 h-4" />
-                  <span className="hidden lg:inline">{t("login")}</span>
-                </Link>
-              </motion.div>
-
-              {/* Language Selector - Desktop */}
-              <div className="relative hidden md:block">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setIsLanguageOpen(!isLanguageOpen)}
-                  className="flex items-center gap-1 hover:text-blue-600 transition-colors px-2 py-1 rounded-md"
-                >
-                  <Globe className="w-4 h-4" />
-                  <span>{selectedLanguage}</span>
-                  <ChevronDown className="w-3 h-3" />
-                </motion.button>
-                <AnimatePresence>
-                  {isLanguageOpen && (
-                    <>
-                      {/* Backdrop */}
-                      <div className="fixed inset-0 z-[60]" onClick={() => setIsLanguageOpen(false)} />
-                      {/* Dropdown */}
-                      <motion.div
-                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl min-w-36 z-[70] overflow-hidden"
-                      >
-                        {languages.map((lang) => (
-                          <motion.button
-                            key={lang.code}
-                            whileHover={{ backgroundColor: "#f3f4f6" }}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleLanguageChange(lang.code)
-                            }}
-                            className={clsx(
-                              "flex items-center gap-2 px-3 py-2 w-full text-left transition-colors text-sm hover:bg-gray-50",
-                              selectedLanguage === lang.code ? "bg-blue-50 text-blue-600" : "text-gray-700",
-                            )}
-                          >
-                            <span>{lang.flag}</span>
-                            <span>{lang.name}</span>
-                          </motion.button>
-                        ))}
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Action Icons */}
-              <div className="hidden sm:flex items-center gap-1 sm:gap-2">
-                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                  <Search className="w-4 h-4 sm:w-5 sm:h-5 cursor-pointer hover:text-blue-600 transition-colors" />
-                </motion.div>
-                {/* Shopping Cart with Badge */}
-                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }} className="relative">
-                  <ShoppingCart
-                    className="w-4 h-4 sm:w-5 sm:h-5 cursor-pointer hover:text-blue-600 transition-colors"
-                    onClick={handleCartClick}
-                  />
-                  {cartItemsCount > 0 && (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center"
-                    >
-                      {cartItemsCount}
-                    </motion.div>
-                  )}
-                </motion.div>
-              </div>
-
-              {/* Mobile menu button */}
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={toggleMobileMenu}
-                className="lg:hidden p-1 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
-              </motion.button>
-            </div>
-          </div>
-
-          {/* Expanded submenu */}
-          <AnimatePresence>
-            {activeMenu !== null && !scrolled && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-                className="mt-8"
-              >
-                <div className="border-t border-gray-200 pt-6">
-                  <div className="grid md:grid-cols-3 gap-6">
-                    {navItems[activeMenu].submenu.map((sub, j) => (
-                      <motion.div
-                        key={j}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: j * 0.1 }}
-                      >
-                        <Link
-                          href="#"
-                          className="group block p-4 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-                        >
-                          <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                            {sub.title}
-                          </h3>
-                          <p className="text-sm text-gray-600">{sub.description}</p>
-                        </Link>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Bottom row: text + button */}
-          <AnimatePresence>
-            {!scrolled && activeMenu === null && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3, delay: 0.1 }}
-                className="mt-10 grid md:grid-cols-2 items-center gap-6"
-              >
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
-                >
-                  <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 mb-2">
-                    {currentLocale === "en" ? "Your Peru travel portal" : "Tu portal de viajes a Perú"}
-                  </h1>
-                  <p className="text-sm text-gray-600">
-                    {currentLocale === "en"
-                      ? "Discover new ideas for your vacations and adventures in Peru."
-                      : "Descubre nuevas ideas para tus vacaciones y aventuras en Perú."}
-                  </p>
-                </motion.div>
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: 0.3 }}
-                  className="md:text-right"
-                >
-                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <Button
-                      onClick={() => router.push(getLocalizedLink("/tours"))}
-                      className="px-6 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
-                    >
-                      {currentLocale === "en" ? "Book Now" : "Reservar"}
-                    </Button>
+                    <div className="flex items-center gap-6">
+                      <span className="text-xs hover:text-blue-800 transition-colors cursor-pointer">Travel trade</span>
+                      <span className="text-xs hover:text-blue-800 transition-colors cursor-pointer">Media</span>
+                      <span className="text-xs hover:text-blue-800 transition-colors cursor-pointer">Mice</span>
+                      <div className="flex items-center gap-3 ml-6">
+                        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                          <Facebook className="w-5 h-5 hover:text-blue-800 transition-colors cursor-pointer" />
+                        </motion.div>
+                        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                          <Instagram className="w-5 h-5 hover:text-blue-800 transition-colors cursor-pointer" />
+                        </motion.div>
+                        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                          <TikTokIcon className="w-5 h-5 hover:text-blue-800 transition-colors cursor-pointer" />
+                        </motion.div>
+                        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                          <Youtube className="w-5 h-5 hover:text-blue-800 transition-colors cursor-pointer" />
+                        </motion.div>
+                        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                          <Linkedin className="w-5 h-5 hover:text-blue-800 transition-colors cursor-pointer" />
+                        </motion.div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <span className="hover:text-blue-800 transition-colors cursor-pointer">
+                        {t("certifiedAgency")}
+                      </span>
+                      <span className="hover:text-blue-800 transition-colors cursor-pointer flex items-center gap-1">
+                        <Phone className="w-4 h-4" />
+                        +51913876154
+                      </span>
+                    </div>
                   </motion.div>
+                )}
+              </AnimatePresence>
+              {/* Main row: logo + nav + icons */}
+              <div className="flex justify-between items-center gap-2 sm:gap-4 min-w-0">
+                {/* Logo */}
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  className="flex items-center gap-2 sm:gap-3 flex-shrink-0 min-w-0"
+                >
+                  <Link href={getLocalizedLink("/")} className="flex items-center gap-2 sm:gap-3">
+                    <div className="relative w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 flex-shrink-0">
+                      <Image
+                        src="https://res.cloudinary.com/dlzq3rsot/image/upload/v1750535406/Imagen_de_WhatsApp_2025-06-02_a_las_12.51.49_e3f17722_uebdkn.jpg"
+                        alt="Tawantinsuyo Peru Logo"
+                        fill
+                        className="object-contain rounded-full"
+                        priority
+                      />
+                    </div>
+                    <div className="flex flex-col min-w-0 sm:block">
+                      <span className="font-semibold text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl text-blue-600 leading-tight whitespace-nowrap">
+                        Tawantinsuyo Peru
+                      </span>
+                    </div>
+                  </Link>
                 </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
+                {/* Navigation */}
+                <nav className="flex-1 hidden lg:flex justify-center gap-6 xl:gap-8 min-w-0">
+                  {navItems.map((item, i) => (
+                    <div key={i} className="group relative" onMouseEnter={() => handleMenuEnter(i)}>
+                      <Link
+                        href={item.href}
+                        className={clsx(
+                          "flex items-center text-sm font-medium gap-1 transition-colors duration-200 hover:text-blue-600 whitespace-nowrap",
+                          activeMenu === i || isActivePage(item.href) ? "text-blue-600" : "text-gray-900",
+                        )}
+                      >
+                        {item.label}
+                        <motion.div animate={{ rotate: activeMenu === i ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                          <ChevronDown size={14} />
+                        </motion.div>
+                      </Link>
+                    </div>
+                  ))}
+                </nav>
+                {/* Icons */}
+                <div className="flex items-center gap-1 sm:gap-2 text-gray-700 text-sm flex-shrink-0">
+                  {/* Social links - only on xl screens */}
+                  <div className="hidden xl:flex gap-3 text-xs text-gray-400 pr-3 border-r border-gray-300">
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                      <Link href="#" className="hover:text-blue-600 transition-colors">
+                        <Facebook className="w-4 h-4" />
+                      </Link>
+                    </motion.div>
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                      <Link href="#" className="hover:text-blue-600 transition-colors">
+                        <Instagram className="w-4 h-4" />
+                      </Link>
+                    </motion.div>
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                      <Link href="#" className="hover:text-blue-600 transition-colors">
+                        <TikTokIcon className="w-4 h-4" />
+                      </Link>
+                    </motion.div>
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                      <Link href="#" className="hover:text-blue-600 transition-colors">
+                        <Youtube className="w-4 h-4" />
+                      </Link>
+                    </motion.div>
+                  </div>
+                  {/* Login */}
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                    <Link
+                      href={getLocalizedLink("/login")}
+                      className="hidden md:flex items-center gap-1 hover:text-blue-600 transition-colors"
+                    >
+                      <User className="w-4 h-4" />
+                      <span className="hidden lg:inline text-xs">{t("login")}</span>
+                    </Link>
+                  </motion.div>
+                  {/* Language Selector - Desktop */}
+                  <div className="relative hidden md:block">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setIsLanguageOpen(!isLanguageOpen)}
+                      className="flex items-center gap-1 hover:text-blue-600 transition-colors px-1 py-1 rounded-md"
+                    >
+                      <Globe className="w-4 h-4" />
+                      <span className="text-xs">{selectedLanguage}</span>
+                      <ChevronDown className="w-3 h-3" />
+                    </motion.button>
+                    <AnimatePresence>
+                      {isLanguageOpen && (
+                        <>
+                          {/* Backdrop */}
+                          <div className="fixed inset-0 z-[60]" onClick={() => setIsLanguageOpen(false)} />
+                          {/* Dropdown */}
+                          <motion.div
+                            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                            transition={{ duration: 0.2 }}
+                            className="absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl min-w-32 z-[70] overflow-hidden"
+                          >
+                            {languages.map((lang) => (
+                              <motion.button
+                                key={lang.code}
+                                whileHover={{ backgroundColor: "#f3f4f6" }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleLanguageChange(lang.code)
+                                }}
+                                className={clsx(
+                                  "flex items-center gap-2 px-3 py-2 w-full text-left transition-colors text-sm hover:bg-gray-50",
+                                  selectedLanguage === lang.code ? "bg-blue-50 text-blue-600" : "text-gray-700",
+                                )}
+                              >
+                                <span>{lang.flag}</span>
+                                <span>{lang.name}</span>
+                              </motion.button>
+                            ))}
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  {/* Action Icons */}
+                  <div className="hidden sm:flex items-center gap-1">
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                      <Search className="w-4 h-4 cursor-pointer hover:text-blue-600 transition-colors" />
+                    </motion.div>
+                    {/* Shopping Cart with Badge */}
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }} className="relative">
+                      <ShoppingCart
+                        className="w-4 h-4 cursor-pointer hover:text-blue-600 transition-colors"
+                        onClick={handleCartClick}
+                      />
+                      {cartItemsCount > 0 && (
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center"
+                        >
+                          {cartItemsCount}
+                        </motion.div>
+                      )}
+                    </motion.div>
+                  </div>
+                  {/* Mobile menu button */}
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={toggleMobileMenu}
+                    className="lg:hidden p-1 hover:bg-gray-100 rounded-lg transition-colors ml-1"
+                  >
+                    <Menu className="w-5 h-5" />
+                  </motion.button>
+                </div>
+              </div>
+              {/* Expanded submenu */}
+              <AnimatePresence>
+                {activeMenu !== null && !scrolled && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3, ease: "easeOut" }}
+                    className="mt-8"
+                  >
+                    <div className="border-t border-gray-200 pt-6">
+                      <div className="grid md:grid-cols-3 gap-6">
+                        {navItems[activeMenu].submenu.map((sub, j) => (
+                          <motion.div
+                            key={j}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3, delay: j * 0.1 }}
+                          >
+                            <Link
+                              href="#"
+                              className="group block p-4 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                            >
+                              <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+                                {sub.title}
+                              </h3>
+                              <p className="text-sm text-gray-600">{sub.description}</p>
+                            </Link>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              {/* Bottom row: text + button */}
+              <AnimatePresence>
+                {!scrolled && activeMenu === null && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3, delay: 0.1 }}
+                    className="mt-10 grid md:grid-cols-2 items-center gap-6"
+                  >
+                    <motion.div
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.5, delay: 0.2 }}
+                    >
+                      <h1 className="text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-2">
+                        {currentLocale === "en" ? "Your Peru travel portal" : "Tu portal de viajes a Perú"}
+                      </h1>
+                      <p className="text-sm text-gray-600">
+                        {currentLocale === "en"
+                          ? "Discover new ideas for your vacations and adventures in Peru."
+                          : "Descubre nuevas ideas para tus vacaciones y aventuras en Perú."}
+                      </p>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.5, delay: 0.3 }}
+                      className="md:text-right"
+                    >
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button
+                          onClick={() => router.push(getLocalizedLink("/tours"))}
+                          className="px-6 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
+                        >
+                          {currentLocale === "en" ? "Book Now" : "Reservar"}
+                        </Button>
+                      </motion.div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        </div>
       </motion.header>
-
       {/* Mobile Menu Overlay */}
       <AnimatePresence>
         {isMobileMenuOpen && (
@@ -580,7 +580,7 @@ export default function Header() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+              className="fixed inset-0 bg-black bg-opacity-50 z-[60] lg:hidden"
               onClick={closeMobileMenu}
             />
             <motion.div
@@ -588,12 +588,12 @@ export default function Header() {
               animate={{ x: 0 }}
               exit={{ x: -320 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed top-0 left-0 w-80 h-full bg-white shadow-lg z-50 overflow-y-auto"
+              className="fixed top-0 left-0 w-[min(280px,85vw)] h-full bg-white shadow-lg z-[70] overflow-y-auto"
             >
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-8">
-                  <div className="flex items-center gap-3">
-                    <div className="relative w-12 h-12">
+              <div className="p-4">
+                <div className="flex justify-between items-center mb-6">
+                  <div className="flex items-center gap-2">
+                    <div className="relative w-10 h-10">
                       <Image
                         src="https://res.cloudinary.com/dlzq3rsot/image/upload/v1750535406/Imagen_de_WhatsApp_2025-06-02_a_las_12.51.49_e3f17722_uebdkn.jpg"
                         alt="Tawantinsuyo Peru Logo"
@@ -602,8 +602,8 @@ export default function Header() {
                       />
                     </div>
                     <div>
-                      <div className="text-lg font-bold text-blue-600">Tawantinsuyo</div>
-                      <div className="text-sm text-gray-600 -mt-1">Peru</div>
+                      <div className="text-sm font-bold text-blue-600">Tawantinsuyo</div>
+                      <div className="text-xs text-gray-600 -mt-1">Peru</div>
                     </div>
                   </div>
                   <motion.button
@@ -612,11 +612,10 @@ export default function Header() {
                     onClick={closeMobileMenu}
                     className="p-2 hover:bg-gray-100 rounded-lg"
                   >
-                    <X className="w-6 h-6 text-gray-600" />
+                    <X className="w-5 h-5 text-gray-600" />
                   </motion.button>
                 </div>
-
-                <nav className="space-y-2 mb-6">
+                <nav className="space-y-2 mb-4">
                   {navItems.map((item, index) => (
                     <motion.div
                       key={item.label}
@@ -628,7 +627,7 @@ export default function Header() {
                         href={item.href}
                         onClick={closeMobileMenu}
                         className={clsx(
-                          "block px-4 py-3 rounded-lg font-medium transition-colors",
+                          "block px-3 py-2 rounded-lg font-medium transition-colors text-sm",
                           isActivePage(item.href) ? "bg-blue-600 text-white" : "text-gray-700 hover:bg-gray-100",
                         )}
                       >
@@ -637,16 +636,15 @@ export default function Header() {
                     </motion.div>
                   ))}
                 </nav>
-
                 {/* Mobile Language Selector */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: 0.4 }}
-                  className="mb-6 pt-4 border-t border-gray-200"
+                  className="mb-4 pt-3 border-t border-gray-200"
                 >
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Idioma / Language</h3>
-                  <div className="grid grid-cols-2 gap-3">
+                  <h3 className="text-xs font-semibold text-gray-700 mb-2">Idioma / Language</h3>
+                  <div className="grid grid-cols-2 gap-2">
                     {languages.map((lang) => (
                       <motion.button
                         key={lang.code}
@@ -657,63 +655,61 @@ export default function Header() {
                           closeMobileMenu()
                         }}
                         className={clsx(
-                          "flex items-center gap-3 px-4 py-3 rounded-lg border-2 transition-all duration-300 text-left",
+                          "flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all duration-300 text-left text-sm",
                           selectedLanguage === lang.code
                             ? "border-blue-600 bg-blue-50 text-blue-600"
                             : "border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-700",
                         )}
                       >
-                        <span className="text-xl">{lang.flag}</span>
+                        <span className="text-base">{lang.flag}</span>
                         <div>
-                          <div className="font-medium">{lang.code}</div>
+                          <div className="font-medium text-xs">{lang.code}</div>
                           <div className="text-xs opacity-75">{lang.name}</div>
                         </div>
                       </motion.button>
                     ))}
                   </div>
                 </motion.div>
-
                 {/* Mobile Social Media */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: 0.5 }}
-                  className="mb-6 pt-4 border-t border-gray-200"
+                  className="mb-4 pt-3 border-t border-gray-200"
                 >
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Síguenos</h3>
-                  <div className="flex justify-center gap-6">
+                  <h3 className="text-xs font-semibold text-gray-700 mb-2">Síguenos</h3>
+                  <div className="flex justify-center gap-4">
                     <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                      <Facebook className="w-7 h-7 text-blue-600 cursor-pointer" />
+                      <Facebook className="w-6 h-6 text-blue-600 cursor-pointer" />
                     </motion.div>
                     <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                      <Instagram className="w-7 h-7 text-pink-600 cursor-pointer" />
+                      <Instagram className="w-6 h-6 text-pink-600 cursor-pointer" />
                     </motion.div>
                     <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                      <TikTokIcon className="w-7 h-7 text-gray-800 cursor-pointer" />
+                      <TikTokIcon className="w-6 h-6 text-gray-800 cursor-pointer" />
                     </motion.div>
                     <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                      <Youtube className="w-7 h-7 text-red-600 cursor-pointer" />
+                      <Youtube className="w-6 h-6 text-red-600 cursor-pointer" />
                     </motion.div>
                   </div>
                 </motion.div>
-
                 {/* Mobile Contact */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: 0.6 }}
-                  className="space-y-3"
+                  className="space-y-2"
                 >
                   <Button
                     variant="outline"
-                    className="w-full justify-start border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white bg-transparent"
+                    className="w-full justify-start border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white bg-transparent text-sm py-2"
                   >
                     <Phone className="w-4 h-4 mr-2" />
                     {t("contact")}
                   </Button>
                   <Button
                     variant="outline"
-                    className="w-full justify-start border-green-600 text-green-600 hover:bg-green-600 hover:text-white bg-transparent"
+                    className="w-full justify-start border-green-600 text-green-600 hover:bg-green-600 hover:text-white bg-transparent text-sm py-2"
                   >
                     <MessageCircle className="w-4 h-4 mr-2" />
                     WhatsApp

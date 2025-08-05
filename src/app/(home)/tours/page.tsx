@@ -31,10 +31,8 @@ import Link from "next/link"
 
 const getLocalizedValue = (value: unknown): string => {
   if (!value) return ""
-
   // If it's already a string, return it
   if (typeof value === "string") return value
-
   // If it's an object with language keys, extract the appropriate one
   if (typeof value === "object" && value !== null) {
     const obj = value as Record<string, unknown>
@@ -44,7 +42,6 @@ const getLocalizedValue = (value: unknown): string => {
     const firstStringValue = Object.values(obj).find((v) => typeof v === "string")
     if (firstStringValue) return String(firstStringValue)
   }
-
   // Fallback to string conversion
   return String(value)
 }
@@ -86,20 +83,17 @@ export default function ToursPage() {
     { id: "Panoramico", name: isSpanish ? "Panorámico" : "Scenic", count: 0 },
     { id: "Transporte Turistico", name: isSpanish ? "Transporte Turístico" : "Tourist Transport", count: 0 },
   ]
-
   const difficultyLevels = [
     { id: "all", name: isSpanish ? "Todos los niveles" : "All levels", icon: "🔵" },
     { id: "Facil", name: isSpanish ? "Fácil" : "Easy", icon: "🟢" },
     { id: "Moderado", name: isSpanish ? "Moderado" : "Moderate", icon: "🟡" },
     { id: "Difícil", name: isSpanish ? "Difícil" : "Difficult", icon: "🔴" },
   ]
-
   const packageTypes = [
     { id: "all", name: isSpanish ? "Todos los paquetes" : "All packages" },
     { id: "Basico", name: isSpanish ? "Básico" : "Basic" },
     { id: "Premium", name: isSpanish ? "Premium" : "Premium" },
   ]
-
   const regions = [
     { id: "all", name: isSpanish ? "Todas las regiones" : "All regions" },
     { id: "Cusco", name: "Cusco" },
@@ -127,13 +121,10 @@ export default function ToursPage() {
       try {
         setLoading(true)
         setError(null)
-
         const params = new URLSearchParams()
-
         // Add language parameter
         const langParam = currentLocale === "en" ? "en" : "es"
         params.append("lang", langParam)
-
         // Add filters
         if (filters?.category) params.append("category", filters.category)
         if (filters?.difficulty) params.append("difficulty", filters.difficulty)
@@ -143,12 +134,10 @@ export default function ToursPage() {
 
         const queryString = params.toString()
         const url = `/tours?${queryString}`
-
         const response = await api.get(url)
 
         // Validate response structure
         let toursData = response.data
-
         if (toursData && typeof toursData === "object" && !Array.isArray(toursData)) {
           if (Array.isArray(toursData.data)) {
             toursData = toursData.data
@@ -161,12 +150,10 @@ export default function ToursPage() {
             toursData = []
           }
         }
-
         if (!Array.isArray(toursData)) {
           console.warn("Response is not an array:", toursData)
           toursData = []
         }
-
         console.log("Tours loaded:", toursData.length, toursData)
         setTours(toursData)
         setFilteredTours(toursData)
@@ -211,7 +198,6 @@ export default function ToursPage() {
 
     // Apply search term locally for better UX
     let filtered = [...tours]
-
     if (searchTerm) {
       const getLocalizedValueWithLocale = (value: unknown, locale: string): string => {
         if (!value) return ""
@@ -226,14 +212,12 @@ export default function ToursPage() {
         }
         return String(value)
       }
-
       filtered = filtered.filter((tour) => {
         const title = getLocalizedValueWithLocale(tour.title, currentLocale).toLowerCase()
         const subtitle = getLocalizedValueWithLocale(tour.subtitle, currentLocale).toLowerCase()
         const location = getLocalizedValueWithLocale(tour.location, currentLocale).toLowerCase()
         const region = getLocalizedValueWithLocale(tour.region, currentLocale).toLowerCase()
         const searchLower = searchTerm.toLowerCase()
-
         return (
           title.includes(searchLower) ||
           subtitle.includes(searchLower) ||
@@ -287,8 +271,19 @@ export default function ToursPage() {
   const indexOfFirstTour = indexOfLastTour - toursPerPage
   const currentTours = filteredTours.slice(indexOfFirstTour, indexOfLastTour)
   const totalPages = Math.ceil(filteredTours.length / toursPerPage)
-
   const paginate = useCallback((pageNumber: number) => setCurrentPage(pageNumber), [])
+
+  // Determine if it's a mobile view for card expansion logic
+  const [isMobileView, setIsMobileView] = useState(false)
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileView(window.innerWidth < 768) // Using md breakpoint for consistency
+    }
+    handleResize() // Set initial value
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
 
   if (loading) {
     return (
@@ -343,7 +338,6 @@ export default function ToursPage() {
                 : "Explore the most incredible destinations with our specialized tours"}
             </p>
           </motion.div>
-
           {/* Search Bar */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -362,7 +356,6 @@ export default function ToursPage() {
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-6 h-6 text-gray-400" />
             </div>
           </motion.div>
-
           {/* Filter Toggle for Mobile */}
           <div className="flex justify-center mb-8 lg:hidden">
             <Button
@@ -374,7 +367,6 @@ export default function ToursPage() {
               {showFilters && <X className="w-4 h-4 ml-2" />}
             </Button>
           </div>
-
           {/* Filters */}
           <AnimatePresence>
             {(showFilters || (typeof window !== "undefined" && window.innerWidth >= 1024)) && (
@@ -405,7 +397,6 @@ export default function ToursPage() {
                       <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                     </div>
                   </div>
-
                   {/* Difficulty Filter */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -426,7 +417,6 @@ export default function ToursPage() {
                       <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                     </div>
                   </div>
-
                   {/* Package Type Filter */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -447,7 +437,6 @@ export default function ToursPage() {
                       <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                     </div>
                   </div>
-
                   {/* Region Filter */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -469,7 +458,6 @@ export default function ToursPage() {
                     </div>
                   </div>
                 </div>
-
                 {/* Clear Filters Button */}
                 <div className="flex justify-center mt-6">
                   <Button
@@ -485,7 +473,6 @@ export default function ToursPage() {
           </AnimatePresence>
         </div>
       </section>
-
       {/* Results Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Results Count */}
@@ -503,7 +490,6 @@ export default function ToursPage() {
             )}
           </div>
         </div>
-
         {/* Tours Grid - Using getLocalizedValue for ALL tour properties */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 mb-12">
           {currentTours.map((tour, index) => {
@@ -511,12 +497,19 @@ export default function ToursPage() {
             const tourTitle = getLocalizedValue(tour.title)
             const tourLocation = getLocalizedValue(tour.location)
             const tourDuration = getLocalizedValue(tour.duration)
-            const tourRating = tour.rating || "5.0"
-            const tourReviews = tour.reviews || "0"
-            const tourPrice = tour.price || "0"
+            const tourRating = tour.rating || 5.0 // Default to 5.0 if undefined
+            const tourReviews = tour.reviews || 0 // Default to 0 if undefined
+            const tourPrice = tour.price || 0 // Default to 0 if undefined
+            const tourOriginalPrice = tour.originalPrice || 0
             const tourSlug = tour.slug || ""
             const tourImageUrl = tour.imageUrl || "/placeholder.svg?height=620&width=400&text=Tour+Image"
             const tourFeatured = tour.featured || false
+            const tourHighlights = tour.highlights || []
+
+            const hasDiscount = tourOriginalPrice && tourOriginalPrice > tourPrice
+            const discountPercentage = hasDiscount
+              ? Math.round(((tourOriginalPrice - tourPrice) / tourOriginalPrice) * 100)
+              : 0
 
             return (
               <motion.div
@@ -526,15 +519,15 @@ export default function ToursPage() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.15 }}
                 className="flex-shrink-0"
-                onMouseEnter={() => setHoveredCard(tour._id)}
-                onMouseLeave={() => setHoveredCard(null)}
+                onMouseEnter={() => !isMobileView && setHoveredCard(tour._id)} // Only hover on desktop
+                onMouseLeave={() => !isMobileView && setHoveredCard(null)} // Only hover on desktop
               >
                 <motion.div
                   onClick={() => {
                     router.push(`${getLocalizedLink("/tours")}/${tourSlug}`)
                   }}
-                  className="relative h-[500px] md:h-[580px] lg:h-[620px] rounded-3xl overflow-hidden group cursor-pointer bg-white shadow-lg hover:shadow-2xl transition-all duration-500"
-                  whileHover={{ y: -8 }}
+                  className="relative h-[480px] sm:h-[520px] md:h-[560px] lg:h-[600px] xl:h-[620px] rounded-2xl md:rounded-3xl overflow-hidden group cursor-pointer bg-white shadow-lg hover:shadow-2xl transition-all duration-500"
+                  whileHover={{ y: -6 }}
                   transition={{ duration: 0.3 }}
                 >
                   {/* Background Image */}
@@ -551,23 +544,37 @@ export default function ToursPage() {
                   </div>
 
                   {/* Top Section - Badges and Favorite */}
-                  <div className="absolute top-6 left-6 right-6 flex justify-between items-start z-20">
+                  <div className="absolute top-4 md:top-6 left-4 md:left-6 right-4 md:right-6 flex justify-between items-start z-20">
                     <div className="flex flex-col gap-2">
                       {tourFeatured && (
                         <motion.div
                           initial={{ scale: 0, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
                           transition={{ delay: 0.3 }}
-                          className="bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg"
+                          className="bg-blue-600 text-white px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-bold shadow-lg"
                         >
                           ⭐ {isSpanish ? "DESTACADO" : "FEATURED"}
                         </motion.div>
                       )}
-                      <div className="bg-white/95 backdrop-blur-sm text-gray-900 px-4 py-2 rounded-full text-lg font-bold shadow-lg">
-                        S/{tourPrice}
+                      {hasDiscount && (
+                        <motion.div
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ delay: 0.4 }}
+                          className="bg-red-500 text-white px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-bold shadow-lg"
+                        >
+                          -{discountPercentage}%
+                        </motion.div>
+                      )}
+                      <div className="bg-white/95 backdrop-blur-sm text-gray-900 px-3 md:px-4 py-2 rounded-full shadow-lg">
+                        <div className="flex flex-col items-center">
+                          <span className="text-base md:text-lg font-bold">S/{tourPrice}</span>
+                          {hasDiscount && (
+                            <span className="text-xs text-gray-500 line-through">S/{tourOriginalPrice}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
-
                     <motion.button
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
@@ -575,122 +582,159 @@ export default function ToursPage() {
                         e.stopPropagation()
                         toggleFavorite(tour._id)
                       }}
-                      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${
+                      className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${
                         favorites.has(tour._id)
                           ? "bg-red-500 text-white"
                           : "bg-white/90 backdrop-blur-sm text-gray-700 hover:bg-white"
                       }`}
                     >
-                      <Heart className={`w-6 h-6 ${favorites.has(tour._id) ? "fill-current" : ""}`} />
+                      <Heart className={`w-5 h-5 md:w-6 md:h-6 ${favorites.has(tour._id) ? "fill-current" : ""}`} />
                     </motion.button>
                   </div>
 
-                  {/* Content Overlay - Yellow Section with Animation */}
+                  {/* Content Overlay - Yellow Section */}
                   <motion.div
-                    className="absolute bottom-0 left-0 right-0 bg-yellow-400 rounded-t-3xl overflow-hidden shadow-2xl"
-                    initial={{ height: "140px" }}
+                    className="absolute bottom-0 left-0 right-0 bg-yellow-400 rounded-t-2xl md:rounded-t-3xl overflow-hidden shadow-2xl"
+                    initial={{ height: isMobileView ? "240px" : "140px" }}
                     animate={{
-                      height: hoveredCard === tour._id ? "320px" : "140px",
+                      height: isMobileView // If mobile, height is fixed and generous
+                        ? "240px" // Fixed height for mobile that always shows buttons
+                        : hoveredCard === tour._id // If desktop, use hover
+                          ? "420px"
+                          : "140px",
                     }}
-                    transition={{ duration: 0.4, ease: "easeInOut" }}
+                    transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
                   >
-                    <div className="p-6 md:p-8 h-full flex flex-col">
-                      {/* Always visible content */}
-                      <div className="flex-shrink-0">
-                        <h3 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-3 leading-tight">
+                    <div className="p-4 md:p-6 lg:p-8 h-full">
+                      {/* Contenido principal siempre visible */}
+                      <div className="mb-4">
+                        <h3 className="text-lg md:text-xl lg:text-2xl xl:text-3xl font-bold text-gray-900 mb-2 md:mb-3 leading-tight line-clamp-2">
                           {tourTitle}
                         </h3>
-
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <MapPin className="w-5 h-5 text-gray-700" />
-                            <span className="text-base font-semibold text-gray-700">{tourLocation}</span>
+                          <div className="flex items-center gap-1.5 md:gap-2 min-w-0 flex-1">
+                            <MapPin className="w-4 h-4 md:w-5 md:h-5 text-gray-700 flex-shrink-0" />
+                            <span className="text-sm md:text-base font-semibold text-gray-700 truncate">
+                              {tourLocation}
+                            </span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Star className="w-5 h-5 text-gray-700 fill-current" />
-                            <span className="text-base font-bold text-gray-700">{tourRating}</span>
+                          <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0 ml-2">
+                            <Star className="w-4 h-4 md:w-5 md:h-5 text-gray-700 fill-current" />
+                            <span className="text-sm md:text-base font-bold text-gray-700">{tourRating}</span>
                           </div>
                         </div>
                       </div>
 
-                      {/* Expandable content with enhanced information */}
+                      {/* Botones de acción - SIEMPRE VISIBLES */}
+                      <div className="mb-4">
+                        <div className="flex gap-2 md:gap-3">
+                          <Link href={`${getLocalizedLink("/tours")}/${tourSlug}`} className="flex-1">
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                              }}
+                              className="w-full bg-blue-600 text-white px-3 md:px-4 py-2.5 md:py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-bold hover:bg-blue-700 transition-colors shadow-lg"
+                            >
+                              {isSpanish ? "Detalles" : "Details"}
+                            </motion.button>
+                          </Link>
+                          <Link href={`${getLocalizedLink("/tours")}/${tourSlug}?action=book`} className="flex-1">
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                              }}
+                              className="w-full bg-gray-900 text-white px-3 md:px-4 py-2.5 md:py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5 md:gap-2 shadow-lg"
+                            >
+                              {isSpanish ? "Reservar" : "Book"}
+                              <ArrowRight className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                            </motion.button>
+                          </Link>
+                        </div>
+                      </div>
+
+                      {/* Contenido expandible - Solo en desktop con hover o siempre en móvil */}
                       <AnimatePresence>
-                        {hoveredCard === tour._id && (
+                        {(hoveredCard === tour._id || isMobileView) && (
                           <motion.div
-                            initial={{ opacity: 0, y: 30 }}
+                            initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 30 }}
-                            transition={{ duration: 0.3, delay: 0.1 }}
-                            className="flex-1 mt-4 space-y-4"
+                            exit={{ opacity: 0, y: 10 }}
+                            transition={{ duration: 0.3 }}
+                            className="space-y-2 md:space-y-3 overflow-y-auto"
+                            style={{ maxHeight: isMobileView ? "200px" : "180px" }}
                           >
                             {/* Tour details grid */}
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div className="flex items-center gap-2 text-gray-700">
-                                <Clock className="w-4 h-4" />
-                                <span className="font-medium">{tourDuration}</span>
+                            <div className="grid grid-cols-2 gap-1.5 md:gap-2 text-xs md:text-sm">
+                              <div className="flex items-center gap-1.5 md:gap-2 text-gray-700">
+                                <Clock className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
+                                <span className="font-medium truncate">{tourDuration}</span>
                               </div>
-                              <div className="flex items-center gap-2 text-gray-700">
-                                <Users className="w-4 h-4" />
-                                <span className="font-medium">{isSpanish ? "Máx. 15 personas" : "Max. 15 people"}</span>
+                              <div className="flex items-center gap-1.5 md:gap-2 text-gray-700">
+                                <Users className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
+                                <span className="font-medium truncate">
+                                  {isSpanish ? "Máx. 15 personas" : "Max. 15 people"}
+                                </span>
                               </div>
-                              <div className="flex items-center gap-2 text-gray-700">
-                                <Award className="w-4 h-4" />
-                                <span className="font-medium">
+                              <div className="flex items-center gap-1.5 md:gap-2 text-gray-700">
+                                <Award className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
+                                <span className="font-medium truncate">
                                   {tourReviews} {isSpanish ? "reseñas" : "reviews"}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-2 text-gray-700">
-                                <Calendar className="w-4 h-4" />
-                                <span className="font-medium">{isSpanish ? "Todo el año" : "All year"}</span>
+                              <div className="flex items-center gap-1.5 md:gap-2 text-gray-700">
+                                <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
+                                <span className="font-medium truncate">{isSpanish ? "Todo el año" : "All year"}</span>
                               </div>
                             </div>
 
                             {/* Tour highlights */}
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2 text-sm text-gray-700">
-                                <Camera className="w-4 h-4" />
-                                <span>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-gray-700">
+                                <Camera className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
+                                <span className="truncate">
                                   {isSpanish ? "Fotografías profesionales incluidas" : "Professional photos included"}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-2 text-sm text-gray-700">
-                                <Compass className="w-4 h-4" />
-                                <span>{isSpanish ? "Guía turístico certificado" : "Certified tour guide"}</span>
+                              <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-gray-700">
+                                <Compass className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
+                                <span className="truncate">
+                                  {isSpanish ? "Guía turístico certificado" : "Certified tour guide"}
+                                </span>
                               </div>
                             </div>
 
-                            {/* Action buttons */}
-                            <div className="flex items-center justify-between pt-3">
-                              <div className="text-sm text-gray-600">
-                                <span className="font-semibold">
+                            {/* Highlights de los datos del tour */}
+                            {tourHighlights.length > 0 && (
+                              <div className="space-y-1">
+                                <h4 className="text-xs md:text-sm font-bold text-gray-800">Highlights:</h4>
+                                <div className="space-y-0.5">
+                                  {tourHighlights.slice(0, 2).map((highlight, idx) => (
+                                    <div key={idx} className="text-xs md:text-sm text-gray-700">
+                                      • {getLocalizedValue(highlight)}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Información de precio */}
+                            <div className="pt-2 border-t border-gray-700/20">
+                              <div className="text-xs md:text-sm text-gray-700">
+                                <span className="font-bold text-base md:text-lg">
                                   {isSpanish ? "Desde" : "From"} S/{tourPrice}
                                 </span>
-                                <span className="block text-xs">{isSpanish ? "por persona" : "per person"}</span>
-                              </div>
-
-                              <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                                <Link href={`${getLocalizedLink("/tours")}/${tourSlug}`}>
-                                  <motion.button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                    }}
-                                    className="bg-blue-600 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-full text-xs font-bold hover:bg-blue-700 transition-colors shadow-lg"
-                                  >
-                                    {isSpanish ? "Detalles" : "Details"}
-                                  </motion.button>
-                                </Link>
-
-                                <Link href={`${getLocalizedLink("/tours")}/${tourSlug}?action=book`}>
-                                  <motion.button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                    }}
-                                    className="bg-gray-900 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-full text-xs font-bold hover:bg-gray-800 transition-colors flex items-center gap-1 shadow-lg"
-                                  >
-                                    {isSpanish ? "Reservar" : "Book"}
-                                    <ArrowRight className="w-3 h-3" />
-                                  </motion.button>
-                                </Link>
+                                <span className="block text-xs opacity-80">
+                                  {isSpanish ? "por persona" : "per person"}
+                                </span>
+                                {hasDiscount && (
+                                  <span className="block text-xs text-red-600 font-medium">
+                                    {isSpanish ? "Precio original" : "Original price"}: S/{tourOriginalPrice}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </motion.div>
@@ -703,7 +747,6 @@ export default function ToursPage() {
             )
           })}
         </div>
-
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mt-12">
@@ -711,7 +754,6 @@ export default function ToursPage() {
             <div className="text-gray-600 text-sm">
               {isSpanish ? "Página" : "Page"} {currentPage} {isSpanish ? "de" : "of"} {totalPages}
             </div>
-
             {/* Pagination Controls */}
             <div className="flex items-center gap-2">
               {/* Previous Button */}
@@ -727,7 +769,6 @@ export default function ToursPage() {
               >
                 <ChevronLeft className="w-4 h-4" />
               </Button>
-
               {/* Page Numbers */}
               <div className="flex gap-1">
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -741,7 +782,6 @@ export default function ToursPage() {
                   } else {
                     pageNumber = currentPage - 2 + i
                   }
-
                   return (
                     <Button
                       key={pageNumber}
@@ -757,7 +797,6 @@ export default function ToursPage() {
                   )
                 })}
               </div>
-
               {/* Next Button */}
               <Button
                 onClick={() => paginate(currentPage + 1)}
@@ -772,7 +811,6 @@ export default function ToursPage() {
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
-
             {/* Results per page info */}
             <div className="text-gray-600 text-sm">
               {indexOfFirstTour + 1}-{Math.min(indexOfLastTour, filteredTours.length)} {isSpanish ? "de" : "of"}{" "}
@@ -780,7 +818,6 @@ export default function ToursPage() {
             </div>
           </div>
         )}
-
         {/* No Results */}
         {filteredTours.length === 0 && !loading && (
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="text-center py-20">
