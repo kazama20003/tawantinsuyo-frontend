@@ -19,7 +19,8 @@ import type {
 import { getTranslation, type Locale } from "@/lib/i18n"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
-import Header from "@/components/header" // Import the Header component
+import RelatedToursSection from "@/components/related-tours-section"
+
 
 interface ImageData {
   url: string
@@ -342,7 +343,6 @@ Gracias!`,
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center pt-32">
-        <Header />
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center p-8">
           <Loader2 className="w-16 h-16 animate-spin text-blue-600 mx-auto mb-6" />
           <h2 className="text-3xl font-bold text-gray-900 mb-4">{t("loading")}</h2>
@@ -357,7 +357,7 @@ Gracias!`,
   if (error || !tour) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 pt-32">
-        <Header />
+       
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -395,7 +395,6 @@ Gracias!`,
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header /> {/* Render the Header component */}
 
       {/* Booking Modal */}
       <AnimatePresence>
@@ -2325,6 +2324,11 @@ Gracias!`,
           </div>
         </section>
       </div>
+      <div>
+        <RelatedToursSection></RelatedToursSection>
+      </div>
+      
     </div>
+    
   )
 }
